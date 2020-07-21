@@ -51,7 +51,7 @@
       </div>
       <button class="btn modifier-class">Reset</button>
       <h4>Country</h4>
-      <fieldset class="radio-group">
+      <fieldset class="radio-group country">
         <input class="radio-group-input" type="radio" id="all" name="country" checked/>
         <label class="radio-group-label" for="all">All</label>
         <input class="radio-group-input" type="radio" id="au" name="country"/>
@@ -63,7 +63,7 @@
         <input class="radio-group-input" type="radio" id="fr" name="country"/>
         <label class="radio-group-label" for="fr">FR</label>
       </fieldset>
-      <fieldset class="radio-group">
+      <fieldset class="radio-group country">
         <input class="radio-group-input" type="radio" id="in" name="country"/>
         <label class="radio-group-label" for="in">IN</label>
         <input class="radio-group-input" type="radio" id="jp" name="country"/>
@@ -75,7 +75,7 @@
         <input class="radio-group-input" type="radio" id="us" name="country"/>
         <label class="radio-group-label" for="us">US</label>
       </fieldset>
-      <h4>Country</h4>
+      <h4>Type</h4>
       <fieldset class="radio-group">
         <input class="radio-group-input" type="radio" id="all" name="type"/>
         <label class="radio-group-label" for="all">All</label>
@@ -95,6 +95,16 @@
         <input class="radio-group-input" type="radio" id="large" name="size"/>
         <label class="radio-group-label" for="large">Lg</label>
       </fieldset>
+      <h4>Launch Date</h4>
+      <div id="sliderLaunch"></div>
+      <h4>Orbital Period</h4>
+      <div id="sliderPeriod"></div>
+      <h4>Inclination</h4>
+      <div id="sliderInclination"></div>
+      <h4>Apogee</h4>
+      <div id="sliderApogee"></div>
+      <h4>Perigee</h4>
+      <div id="sliderPerigee"></div>
     </div>
     <script>require([
       "app/main",

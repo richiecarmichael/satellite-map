@@ -1,5 +1,5 @@
-
 import ActionToggle from "esri/support/actions/ActionToggle";
+import Camera from "esri/Camera";
 import FeatureLayer from "esri/layers/FeatureLayer";
 import Field from "esri/layers/support/Field"
 import Graphic from "esri/Graphic";
@@ -15,9 +15,10 @@ import PopupTemplate from "esri/PopupTemplate";
 import Request from "esri/request";
 import Satellite from "node_modules/satellite.js/dist/satellite.min.js";
 import SceneView from "esri/views/SceneView";
-import SimpleRenderer from "esri/renderers/SimpleRenderer";
-import SpatialReference from "esri/geometry/SpatialReference";
 import SimpleLineSymbol from "esri/symbols/SimpleLineSymbol";
+import SimpleRenderer from "esri/renderers/SimpleRenderer";
+import Slider from "esri/widgets/Slider";
+import SpatialReference from "esri/geometry/SpatialReference";
 
 interface metadata {
   /*
@@ -99,9 +100,17 @@ interface coordinate {
   z: number;
 }
 
+interface start {
+  animationFrame: number;
+  timestamp?: DOMHighResTimeStamp;
+  camera?: Camera;
+}
+
 const TLE = 'data/tle.20200714.txt';
 const OIO = 'data/oio.20200714.txt';
 const NOW = new Date();
+
+let start: start = null;
 
 const ephemeris: indexedSatelliteEphemeris = {};
 
@@ -116,7 +125,7 @@ const popup = new Popup({
   dockOptions: {
     buttonEnabled: true
   }
-})
+});
 
 const view = new SceneView({
   alphaCompositingEnabled: true,
@@ -154,12 +163,30 @@ const view = new SceneView({
     }
   },
   map,
+  padding: {
+    right: 325
+  },
   popup,
   qualityProfile: "high"
 });
 
+view.when(() => {
+  startSpinning();
+});
+view.on(["click", "double-click", "immediate-click", "immediate-double-click", "key-down", "pointer-down", "mouse-wheel"], () => {
+  stopSpinning();
+  if (timeout != undefined) {
+    clearTimeout(timeout);
+  }
+  timeout = setTimeout(() => {
+    startSpinning();
+  }, 3000);
+});
+
+let timeout: number;
+
 view.ui.add(new Home({ view }), "top-left");
-view.ui.add("menu", "top-right");
+
 document.getElementById("menu").classList.remove("is-hidden");
 
 view.popup.on("trigger-action", (event) => {
@@ -176,6 +203,172 @@ view.popup.on("trigger-action", (event) => {
 view.popup.watch("visible", (visible) => {
   if (!visible) {
     hideOrbit();
+  }
+});
+
+const sliderLaunch = new Slider({
+  container: "sliderLaunch",
+  min: 1950,
+  max: 2025,
+  values: [ 1950, 2025 ],
+  snapOnClickEnabled: true,
+  visibleElements: {
+    labels: true,
+    rangeLabels: false
+  },
+  steps: 1,
+  tickConfigs: [{
+    mode: "position",
+    values: [1950, 1960, 1970, 1980, 1990, 2000, 2010, 2020],
+    labelsVisible: true
+  }],
+  labelFormatFunction: (value, type) => {
+    switch(type) {
+      case "tick":
+        const twoDigitYear = value.toString().substring(2);
+        return `'${twoDigitYear}`;
+      case "value":
+        return `${value}`;
+    }
+  }
+});
+
+const sliderPeriod = new Slider({
+  container: "sliderPeriod",
+  min: 0,
+  max: 5,
+  values: [ 0, 5 ],
+  snapOnClickEnabled: true,
+  visibleElements: {
+    labels: true,
+    rangeLabels: false
+  },
+  steps: 1,
+  tickConfigs: [{
+    mode: "position",
+    values: [0, 1, 2, 3, 4, 5],
+    labelsVisible: true
+  }],
+  labelFormatFunction: (value, type) => {
+    switch(type) {
+      case "tick":
+      case "value":
+        switch (value) {
+          case 0:
+            return "0";
+          case 1:
+            return "100";
+          case 2:
+            return "200";
+          case 3:
+            return "1K";
+          case 4:
+            return "10K";
+          case 5:
+            return "60K";
+        }
+    }
+  }
+});
+
+const sliderInclination = new Slider({
+  container: "sliderInclination",
+  min: 0,
+  max: 160,
+  values: [ 0, 160 ],
+  snapOnClickEnabled: true,
+  visibleElements: {
+    labels: true,
+    rangeLabels: false
+  },
+  steps: 1,
+  tickConfigs: [{
+    mode: "position",
+    values: [0, 30, 60, 90, 120, 150],
+    labelsVisible: true
+  }],
+  labelFormatFunction: (value, type) => {
+    switch(type) {
+      case "tick":
+      case "value":
+        return `${value}°`;
+    }
+  }
+});
+
+const sliderApogee = new Slider({
+  container: "sliderApogee",
+  min: 0,
+  max: 5,
+  values: [ 0, 5 ],
+  snapOnClickEnabled: true,
+  visibleElements: {
+    labels: true,
+    rangeLabels: false
+  },
+  steps: 1,
+  tickConfigs: [{
+    mode: "position",
+    values: [0, 1, 2, 3, 4, 5],
+    labelsVisible: true
+  }],
+  labelFormatFunction: (value, type) => {
+    switch(type) {
+      case "tick":
+      case "value":
+        switch (value) {
+          case 0:
+            return "0";
+          case 1:
+            return "1K";
+          case 2:
+            return "2K";
+          case 3:
+            return "5K";
+          case 4:
+            return "10K";
+          case 5:
+            return "600K";
+        }
+    }
+  }
+});
+
+const sliderPerigee = new Slider({
+  container: "sliderPerigee",
+  min: 0,
+  max: 5,
+  values: [ 0, 5 ],
+  snapOnClickEnabled: true,
+  visibleElements: {
+    labels: true,
+    rangeLabels: false
+  },
+  steps: 1,
+  tickConfigs: [{
+    mode: "position",
+    values: [0, 1, 2, 3, 4, 5],
+    labelsVisible: true
+  }],
+  labelFormatFunction: (value, type) => {
+    switch(type) {
+      case "tick":
+      case "value":
+        switch (value) {
+          case 0:
+            return "0";
+          case 1:
+            return "1K";
+          case 2:
+            return "2K";
+          case 3:
+            return "5K";
+          case 4:
+            return "10K";
+          case 5:
+            return "600K";
+        }
+    }
   }
 });
 
@@ -460,4 +653,51 @@ function loadMetadata(): Promise<indexedMetadata> {
 
     return collection;
   });
+}
+
+function startSpinning() {
+  stopSpinning();
+  start = {
+    animationFrame: requestAnimationFrame(spin)
+  };
+}
+
+function stopSpinning() {
+  if (start) {
+    cancelAnimationFrame(start.animationFrame);
+    start = null;
+  }
+}
+
+function spin(timestamp: DOMHighResTimeStamp) {
+  if (!start) {
+    return;
+  }
+  if (start.timestamp === undefined) {
+    start.timestamp = timestamp;
+    start.camera = view.camera.clone();
+  }
+  if (view.viewingMode === "global") {
+    const diff = timestamp - start.timestamp;
+    const rotate = 1 * diff / 1000; // 1 degree per second rotation
+
+    const { heading, tilt, position: { longitude, latitude, z } } = start.camera;
+    const newLongitude = longitude + rotate;
+    const remainder = newLongitude > 360 ? newLongitude % 360 : 0;
+    
+    const camera = new Camera({
+      heading,
+      tilt,
+      position: new Point({
+        longitude: newLongitude - remainder,
+        latitude,
+        z
+      })
+    });
+    view.set({
+      camera
+    });
+  }
+
+  requestAnimationFrame(spin)
 }

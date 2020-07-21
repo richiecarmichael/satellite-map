@@ -1,7 +1,8 @@
-define(["require", "exports", "tslib", "esri/support/actions/ActionToggle", "esri/layers/FeatureLayer", "esri/layers/support/Field", "esri/Graphic", "esri/Ground", "esri/widgets/Home", "esri/symbols/IconSymbol3DLayer", "esri/Map", "esri/geometry/Point", "esri/symbols/PointSymbol3D", "esri/geometry/Polyline", "esri/widgets/Popup", "esri/PopupTemplate", "esri/request", "node_modules/satellite.js/dist/satellite.min.js", "esri/views/SceneView", "esri/renderers/SimpleRenderer", "esri/geometry/SpatialReference", "esri/symbols/SimpleLineSymbol"], function (require, exports, tslib_1, ActionToggle_1, FeatureLayer_1, Field_1, Graphic_1, Ground_1, Home_1, IconSymbol3DLayer_1, Map_1, Point_1, PointSymbol3D_1, Polyline_1, Popup_1, PopupTemplate_1, request_1, satellite_min_js_1, SceneView_1, SimpleRenderer_1, SpatialReference_1, SimpleLineSymbol_1) {
+define(["require", "exports", "tslib", "esri/support/actions/ActionToggle", "esri/Camera", "esri/layers/FeatureLayer", "esri/layers/support/Field", "esri/Graphic", "esri/Ground", "esri/widgets/Home", "esri/symbols/IconSymbol3DLayer", "esri/Map", "esri/geometry/Point", "esri/symbols/PointSymbol3D", "esri/geometry/Polyline", "esri/widgets/Popup", "esri/PopupTemplate", "esri/request", "node_modules/satellite.js/dist/satellite.min.js", "esri/views/SceneView", "esri/symbols/SimpleLineSymbol", "esri/renderers/SimpleRenderer", "esri/widgets/Slider", "esri/geometry/SpatialReference"], function (require, exports, tslib_1, ActionToggle_1, Camera_1, FeatureLayer_1, Field_1, Graphic_1, Ground_1, Home_1, IconSymbol3DLayer_1, Map_1, Point_1, PointSymbol3D_1, Polyline_1, Popup_1, PopupTemplate_1, request_1, satellite_min_js_1, SceneView_1, SimpleLineSymbol_1, SimpleRenderer_1, Slider_1, SpatialReference_1) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     ActionToggle_1 = tslib_1.__importDefault(ActionToggle_1);
+    Camera_1 = tslib_1.__importDefault(Camera_1);
     FeatureLayer_1 = tslib_1.__importDefault(FeatureLayer_1);
     Field_1 = tslib_1.__importDefault(Field_1);
     Graphic_1 = tslib_1.__importDefault(Graphic_1);
@@ -17,12 +18,14 @@ define(["require", "exports", "tslib", "esri/support/actions/ActionToggle", "esr
     request_1 = tslib_1.__importDefault(request_1);
     satellite_min_js_1 = tslib_1.__importDefault(satellite_min_js_1);
     SceneView_1 = tslib_1.__importDefault(SceneView_1);
-    SimpleRenderer_1 = tslib_1.__importDefault(SimpleRenderer_1);
-    SpatialReference_1 = tslib_1.__importDefault(SpatialReference_1);
     SimpleLineSymbol_1 = tslib_1.__importDefault(SimpleLineSymbol_1);
+    SimpleRenderer_1 = tslib_1.__importDefault(SimpleRenderer_1);
+    Slider_1 = tslib_1.__importDefault(Slider_1);
+    SpatialReference_1 = tslib_1.__importDefault(SpatialReference_1);
     const TLE = 'data/tle.20200714.txt';
     const OIO = 'data/oio.20200714.txt';
     const NOW = new Date();
+    let start = null;
     const ephemeris = {};
     const map = new Map_1.default({
         basemap: "satellite",
@@ -71,11 +74,26 @@ define(["require", "exports", "tslib", "esri/support/actions/ActionToggle", "esr
             }
         },
         map,
+        padding: {
+            right: 325
+        },
         popup,
         qualityProfile: "high"
     });
+    view.when(() => {
+        startSpinning();
+    });
+    view.on(["click", "double-click", "immediate-click", "immediate-double-click", "key-down", "pointer-down", "mouse-wheel"], () => {
+        stopSpinning();
+        if (timeout != undefined) {
+            clearTimeout(timeout);
+        }
+        timeout = setTimeout(() => {
+            startSpinning();
+        }, 3000);
+    });
+    let timeout;
     view.ui.add(new Home_1.default({ view }), "top-left");
-    view.ui.add("menu", "top-right");
     document.getElementById("menu").classList.remove("is-hidden");
     view.popup.on("trigger-action", (event) => {
         switch (event.action.id) {
@@ -90,6 +108,167 @@ define(["require", "exports", "tslib", "esri/support/actions/ActionToggle", "esr
     view.popup.watch("visible", (visible) => {
         if (!visible) {
             hideOrbit();
+        }
+    });
+    const sliderLaunch = new Slider_1.default({
+        container: "sliderLaunch",
+        min: 1950,
+        max: 2025,
+        values: [1950, 2025],
+        snapOnClickEnabled: true,
+        visibleElements: {
+            labels: true,
+            rangeLabels: false
+        },
+        steps: 1,
+        tickConfigs: [{
+                mode: "position",
+                values: [1950, 1960, 1970, 1980, 1990, 2000, 2010, 2020],
+                labelsVisible: true
+            }],
+        labelFormatFunction: (value, type) => {
+            switch (type) {
+                case "tick":
+                    const twoDigitYear = value.toString().substring(2);
+                    return `'${twoDigitYear}`;
+                case "value":
+                    return `${value}`;
+            }
+        }
+    });
+    const sliderPeriod = new Slider_1.default({
+        container: "sliderPeriod",
+        min: 0,
+        max: 5,
+        values: [0, 5],
+        snapOnClickEnabled: true,
+        visibleElements: {
+            labels: true,
+            rangeLabels: false
+        },
+        steps: 1,
+        tickConfigs: [{
+                mode: "position",
+                values: [0, 1, 2, 3, 4, 5],
+                labelsVisible: true
+            }],
+        labelFormatFunction: (value, type) => {
+            switch (type) {
+                case "tick":
+                case "value":
+                    switch (value) {
+                        case 0:
+                            return "0";
+                        case 1:
+                            return "100";
+                        case 2:
+                            return "200";
+                        case 3:
+                            return "1K";
+                        case 4:
+                            return "10K";
+                        case 5:
+                            return "60K";
+                    }
+            }
+        }
+    });
+    const sliderInclination = new Slider_1.default({
+        container: "sliderInclination",
+        min: 0,
+        max: 160,
+        values: [0, 160],
+        snapOnClickEnabled: true,
+        visibleElements: {
+            labels: true,
+            rangeLabels: false
+        },
+        steps: 1,
+        tickConfigs: [{
+                mode: "position",
+                values: [0, 30, 60, 90, 120, 150],
+                labelsVisible: true
+            }],
+        labelFormatFunction: (value, type) => {
+            switch (type) {
+                case "tick":
+                case "value":
+                    return `${value}°`;
+            }
+        }
+    });
+    const sliderApogee = new Slider_1.default({
+        container: "sliderApogee",
+        min: 0,
+        max: 5,
+        values: [0, 5],
+        snapOnClickEnabled: true,
+        visibleElements: {
+            labels: true,
+            rangeLabels: false
+        },
+        steps: 1,
+        tickConfigs: [{
+                mode: "position",
+                values: [0, 1, 2, 3, 4, 5],
+                labelsVisible: true
+            }],
+        labelFormatFunction: (value, type) => {
+            switch (type) {
+                case "tick":
+                case "value":
+                    switch (value) {
+                        case 0:
+                            return "0";
+                        case 1:
+                            return "1K";
+                        case 2:
+                            return "2K";
+                        case 3:
+                            return "5K";
+                        case 4:
+                            return "10K";
+                        case 5:
+                            return "600K";
+                    }
+            }
+        }
+    });
+    const sliderPerigee = new Slider_1.default({
+        container: "sliderPerigee",
+        min: 0,
+        max: 5,
+        values: [0, 5],
+        snapOnClickEnabled: true,
+        visibleElements: {
+            labels: true,
+            rangeLabels: false
+        },
+        steps: 1,
+        tickConfigs: [{
+                mode: "position",
+                values: [0, 1, 2, 3, 4, 5],
+                labelsVisible: true
+            }],
+        labelFormatFunction: (value, type) => {
+            switch (type) {
+                case "tick":
+                case "value":
+                    switch (value) {
+                        case 0:
+                            return "0";
+                        case 1:
+                            return "1K";
+                        case 2:
+                            return "2K";
+                        case 3:
+                            return "5K";
+                        case 4:
+                            return "10K";
+                        case 5:
+                            return "600K";
+                    }
+            }
         }
     });
     function hideOrbit() {
@@ -356,6 +535,47 @@ define(["require", "exports", "tslib", "esri/support/actions/ActionToggle", "esr
             });
             return collection;
         });
+    }
+    function startSpinning() {
+        stopSpinning();
+        start = {
+            animationFrame: requestAnimationFrame(spin)
+        };
+    }
+    function stopSpinning() {
+        if (start) {
+            cancelAnimationFrame(start.animationFrame);
+            start = null;
+        }
+    }
+    function spin(timestamp) {
+        if (!start) {
+            return;
+        }
+        if (start.timestamp === undefined) {
+            start.timestamp = timestamp;
+            start.camera = view.camera.clone();
+        }
+        if (view.viewingMode === "global") {
+            const diff = timestamp - start.timestamp;
+            const rotate = 1 * diff / 1000; // 1 degree per second rotation
+            const { heading, tilt, position: { longitude, latitude, z } } = start.camera;
+            const newLongitude = longitude + rotate;
+            const remainder = newLongitude > 360 ? newLongitude % 360 : 0;
+            const camera = new Camera_1.default({
+                heading,
+                tilt,
+                position: new Point_1.default({
+                    longitude: newLongitude - remainder,
+                    latitude,
+                    z
+                })
+            });
+            view.set({
+                camera
+            });
+        }
+        requestAnimationFrame(spin);
     }
 });
 //# sourceMappingURL=main.js.map

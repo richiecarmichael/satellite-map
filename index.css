@@ -13,5 +13,51 @@ html, body, #viewDiv {
 }
 
 #menu {
-  padding: 1em;
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  bottom: 20px;
+  width: 325px;
+  padding-left: 14px;
+  padding-right: 14px;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+#menu h4 {
+  margin-top: 10px;
+  margin-bottom: 5px;
+}
+
+#menu .esri-slider {
+  margin-top: 25px;
+  margin-left: 14px;
+  margin-bottom: 45px;
+  width: 240px;
+  height: 20px;
+}
+
+#menu .esri-slider__segment-1 {
+  background-color: #0079c1;
+  height:6px;
+  margin-top:-1px
+}
+
+#menu .esri-slider__segment-0,
+#menu .esri-slider__segment-2 {
+  background-color: rgba(110,110,110,0.4);
+}
+
+#menu .esri-slider__thumb {
+  border-width: 3px;
+  top: -6px;
+}
+
+#menu .radio-group {
+  margin-bottom: 0;
+}
+
+#menu .radio-group.country label {
+  width: 55px;
+  margin-top: 0;
 }

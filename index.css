@@ -1,0 +1,17 @@
+@import "node_modules/calcite-web/dist/css/calcite-web.min.css";
+
+html, body, #viewDiv {
+  padding: 0;
+  margin: 0;
+  height: 100%;
+  width: 100%;
+  font-family: "Avenir Next W00", "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+
+#viewDiv canvas {
+  filter: saturate(2);
+}
+
+#menu {
+  padding: 1em;
+}

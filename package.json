@@ -1,0 +1,31 @@
+{
+  "name": "satellite-map",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "dependencies": {
+    "@types/arcgis-js-api": "^4.16.0",
+    "satellite.js": "^4.0.0",
+    "tslib": "^2.0.0"
+  },
+  "devDependencies": {
+    "calcite-web": "github:Esri/calcite-web#v1.2.5"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/richiecarmichael/satellite-map.git"
+  },
+  "keywords": [
+    "esri",
+    "typescript"
+  ],
+  "author": "@richiecarmichael",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/richiecarmichael/satellite-map/issues"
+  },
+  "homepage": "https://github.com/richiecarmichael/satellite-map#readme"
+}

@@ -1,17 +1,19 @@
-import ActionToggle from "esri/support/actions/ActionToggle";
+import ActionButton from "esri/support/actions/ActionButton";
 import Camera from "esri/Camera";
+import EsriMap from "esri/Map";
 import FeatureLayer from "esri/layers/FeatureLayer";
+import FeatureLayerView from "esri/views/layers/FeatureLayerView";
 import Field from "esri/layers/support/Field"
 import Graphic from "esri/Graphic";
 import Ground from "esri/Ground";
 import Home from "esri/widgets/Home";
 import IconSymbol3DLayer from "esri/symbols/IconSymbol3DLayer";
-import Map from "esri/Map";
 import Point from "esri/geometry/Point";
 import PointSymbol3D from "esri/symbols/PointSymbol3D"
 import Polyline from "esri/geometry/Polyline";
 import Popup from "esri/widgets/Popup";
 import PopupTemplate from "esri/PopupTemplate";
+import Query from "esri/tasks/support/Query";
 import Request from "esri/request";
 import Satellite from "node_modules/satellite.js/dist/satellite.min.js";
 import SceneView from "esri/views/SceneView";
@@ -19,6 +21,7 @@ import SimpleLineSymbol from "esri/symbols/SimpleLineSymbol";
 import SimpleRenderer from "esri/renderers/SimpleRenderer";
 import Slider from "esri/widgets/Slider";
 import SpatialReference from "esri/geometry/SpatialReference";
+import TimeExtent from "esri/TimeExtent";
 
 interface metadata {
   /*
@@ -110,11 +113,16 @@ const TLE = 'data/tle.20200714.txt';
 const OIO = 'data/oio.20200714.txt';
 const NOW = new Date();
 
-let start: start = null;
+let start: start;        // Start time and camera position for spinning.
+let timeout: number;     // Timeout for auto-spinning.
+let satelliteLayerView: FeatureLayerView;
+let highlight: any;
+let pauseEvents: boolean = false;
+let satelliteCount: number;
 
 const ephemeris: indexedSatelliteEphemeris = {};
 
-const map = new Map({
+const map = new EsriMap({
   basemap: "satellite",
   ground: new Ground()
 });
@@ -172,30 +180,19 @@ const view = new SceneView({
 
 view.when(() => {
   startSpinning();
+  document.getElementById("menu").classList.remove("is-hidden");
 });
-view.on(["click", "double-click", "immediate-click", "immediate-double-click", "key-down", "pointer-down", "mouse-wheel"], () => {
-  stopSpinning();
-  if (timeout != undefined) {
-    clearTimeout(timeout);
-  }
-  timeout = setTimeout(() => {
-    startSpinning();
-  }, 3000);
+view.on(["pointer-down", "pointer-move", "key-down", "mouse-wheel"], () => {
+  startSpinTimer();
 });
-
-let timeout: number;
 
 view.ui.add(new Home({ view }), "top-left");
-
-document.getElementById("menu").classList.remove("is-hidden");
 
 view.popup.on("trigger-action", (event) => {
   switch(event.action.id) {
     case "orbit":
       hideOrbit();
-      if ((<ActionToggle>event.action).value){
-        showOrbit(view.popup.selectedFeature);
-      }
+      showOrbit(view.popup.selectedFeature);
       break;
   }
 });
@@ -372,11 +369,11 @@ const sliderPerigee = new Slider({
   }
 });
 
-function hideOrbit(){
+function hideOrbit(): void {
   view.graphics.removeAll();
 }
 
-function showOrbit(satellite: Graphic) {
+function showOrbit(satellite: Graphic): void {
   const attributes: attributes = satellite.attributes;
   const { oid, period } = attributes;
   const satrec = ephemeris[oid];
@@ -407,7 +404,10 @@ function showOrbit(satellite: Graphic) {
   view.graphics.add(orbit);
 }
 
-Promise.all([loadSatellites(), loadMetadata()]).then(([source, collection]) => {
+Promise.all([loadSatellites(), loadMetadata()]).then(async ([source, collection]) => {
+  satelliteCount = source.length;
+  clearSatelliteCounter();
+
   source.forEach((graphic) => {
     const attributes: attributes = graphic.attributes;
     const { norad } = attributes;
@@ -467,7 +467,7 @@ Promise.all([loadSatellites(), loadMetadata()]).then(([source, collection]) => {
 
   const popupTemplate = new PopupTemplate({
     actions: [
-      new ActionToggle({
+      new ActionButton({
         id: "orbit",
         title: "Orbit",
         className: "esri-icon-rotate"
@@ -566,10 +566,15 @@ Promise.all([loadSatellites(), loadMetadata()]).then(([source, collection]) => {
     popupTemplate,
     renderer,
     source,
-    spatialReference
+    spatialReference,
+    timeInfo: {
+      startField: "launch"
+    }
   });
 
   map.add(satelliteLayer);
+
+  satelliteLayerView = await view.whenLayerView(satelliteLayer);
 });
 
 function loadSatellites(): Promise<Graphic[]> {
@@ -655,21 +660,34 @@ function loadMetadata(): Promise<indexedMetadata> {
   });
 }
 
-function startSpinning() {
+function startSpinTimer(): void {
   stopSpinning();
+  if (timeout != undefined) {
+    clearTimeout(timeout);
+  }
+  timeout = setTimeout(() => {
+    startSpinning();
+  }, 3000);
+}
+
+function startSpinning(): void {
+  if (view.interacting) {
+    startSpinTimer();
+    return;
+  }
   start = {
     animationFrame: requestAnimationFrame(spin)
   };
 }
 
-function stopSpinning() {
+function stopSpinning(): void {
   if (start) {
     cancelAnimationFrame(start.animationFrame);
     start = null;
   }
 }
 
-function spin(timestamp: DOMHighResTimeStamp) {
+function spin(timestamp: DOMHighResTimeStamp): void {
   if (!start) {
     return;
   }
@@ -700,4 +718,177 @@ function spin(timestamp: DOMHighResTimeStamp) {
   }
 
   requestAnimationFrame(spin)
+}
+
+document.getElementById("reset").addEventListener("click", () => {
+  clearSelection();
+});
+
+document.querySelectorAll("#menu .radio-group .radio-group-input").forEach((element) => {
+  element.addEventListener("click", () => {
+    updateSelection();
+  });
+});
+
+sliderLaunch.watch("values", () => updateSelection());
+sliderPeriod.watch("values", () => updateSelection());
+sliderInclination.watch("values", () => updateSelection());
+sliderApogee.watch("values", () => updateSelection());
+sliderPerigee.watch("values", () => updateSelection());
+
+function clearSelection(): void {
+  highlight?.remove();
+
+  pauseUIEvents();
+
+  (<HTMLInputElement>document.getElementById("country-all")).checked = true;
+  (<HTMLInputElement>document.getElementById("type-all")).checked = true;
+  (<HTMLInputElement>document.getElementById("size-all")).checked = true;
+
+  resetSlider(sliderLaunch);
+  resetSlider(sliderPeriod);
+  resetSlider(sliderInclination);
+  resetSlider(sliderApogee);
+  resetSlider(sliderPerigee);
+
+  resumeUIEvents();
+
+  clearSatelliteCounter();
+}
+
+function clearSatelliteCounter(): void {
+  document.getElementById("counter").innerText = `${satelliteCount} Satellites Loaded`;
+}
+
+function updateSatelliteCounter(count: number): void {
+  document.getElementById("counter").innerText = `${count} of ${satelliteCount} Satellites Found`;
+}
+
+function isSliderMaximized(slider: Slider): boolean {
+  return slider.values[0] === slider.min && slider.values[1] === slider.max
+}
+
+function resetSlider(slider: Slider): void {
+  if (!isSliderMaximized(slider)) {
+    slider.values = [
+      slider.min,
+      slider.max
+    ];
+  }
+}
+
+function pauseUIEvents(): void {
+  pauseEvents = true;
+}
+function resumeUIEvents(): void {
+  pauseEvents = false;
+}
+
+function updateSelection(): void {
+  if (pauseEvents) { return; }
+
+  const country = document.querySelectorAll("#menu .radio-group .radio-group-input[name='country']:checked").item(0).getAttribute("data-country");
+  const type = document.querySelectorAll("#menu .radio-group .radio-group-input[name='type']:checked").item(0).getAttribute("data-type");
+  const size = document.querySelectorAll("#menu .radio-group .radio-group-input[name='size']:checked").item(0).getAttribute("data-size");
+
+  if (country === "ALL" &&
+      type === "ALL" &&
+      size === "ALL" &&
+      isSliderMaximized(sliderLaunch) &&
+      isSliderMaximized(sliderPeriod) &&
+      isSliderMaximized(sliderInclination) &&
+      isSliderMaximized(sliderApogee) &&
+      isSliderMaximized(sliderPerigee)
+    ) {
+    clearSelection();
+    return;
+  }
+
+  let where = "";
+  if (country !== "ALL") {
+    where += `country='${country}'`;
+  }
+  if (type !== "ALL") {
+    if (where !== "") { where += " AND "; }
+    where += type === "JUNK" ? `(name LIKE '%DEB%' OR name LIKE '%R/B%')` : `(name NOT LIKE '%DEB%' AND name NOT LIKE '%R/B%')`;
+  }
+  if (size !== "ALL") {
+    if (where !== "") { where += " AND "; }
+    where += `size='${size}'`;
+  }
+
+  let timeExtent: TimeExtent = null;
+  if (!isSliderMaximized(sliderLaunch)) {
+    timeExtent = new TimeExtent({
+      start: new Date(sliderLaunch.values[0], 0, 1),
+      end: new Date(sliderLaunch.values[1], 0, 1),
+    })
+  }
+
+  if (!isSliderMaximized(sliderPeriod)) {
+    if (where !== "") { where += " AND "; }
+    const period = new Map<number, number>([
+      [0, 0],
+      [1, 100],
+      [2, 200],
+      [3, 1000],
+      [4, 10000],
+      [5, 60000]
+    ]);
+    const from = period.get(sliderPeriod.values[0]);
+    const to = period.get(sliderPeriod.values[1]);
+    where += `(period BETWEEN ${from} AND ${to})`;
+  }
+
+  if (!isSliderMaximized(sliderInclination)) {
+    if (where !== "") { where += " AND "; }
+    const from = sliderInclination.values[0];
+    const to = sliderInclination.values[1];
+    where += `(inclination BETWEEN ${from} AND ${to})`;
+  }
+
+  if (!isSliderMaximized(sliderApogee)) {
+    if (where !== "") { where += " AND "; }
+    const apogee = new Map<number, number>([
+      [0, 0],
+      [1, 1000],
+      [2, 2000],
+      [3, 5000],
+      [4, 100000],
+      [5, 600000]
+    ]);
+    const from = apogee.get(sliderApogee.values[0]);
+    const to = apogee.get(sliderApogee.values[1]);
+    where += `(apogee BETWEEN ${from} AND ${to})`;
+  }
+
+  if (!isSliderMaximized(sliderPerigee)) {
+    if (where !== "") { where += " AND "; }
+    const perigee = new Map<number, number>([
+      [0, 0],
+      [1, 1000],
+      [2, 2000],
+      [3, 5000],
+      [4, 100000],
+      [5, 600000]
+    ]);
+    const from = perigee.get(sliderPerigee.values[0]);
+    const to = perigee.get(sliderPerigee.values[1]);
+    where += `(perigee BETWEEN ${from} AND ${to})`;
+  }
+
+  const query = new Query({
+    timeExtent,
+    where
+  });
+
+  const { layer } = satelliteLayerView;
+  layer.queryFeatures(query).then((featureSet) => {
+    highlight?.remove();
+    highlight = satelliteLayerView.highlight(featureSet.features);
+  });
+
+  layer.queryFeatureCount(query).then((count) => {
+    updateSatelliteCounter(count);
+  });
 }

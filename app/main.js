@@ -1,20 +1,21 @@
-define(["require", "exports", "tslib", "esri/support/actions/ActionToggle", "esri/Camera", "esri/layers/FeatureLayer", "esri/layers/support/Field", "esri/Graphic", "esri/Ground", "esri/widgets/Home", "esri/symbols/IconSymbol3DLayer", "esri/Map", "esri/geometry/Point", "esri/symbols/PointSymbol3D", "esri/geometry/Polyline", "esri/widgets/Popup", "esri/PopupTemplate", "esri/request", "node_modules/satellite.js/dist/satellite.min.js", "esri/views/SceneView", "esri/symbols/SimpleLineSymbol", "esri/renderers/SimpleRenderer", "esri/widgets/Slider", "esri/geometry/SpatialReference"], function (require, exports, tslib_1, ActionToggle_1, Camera_1, FeatureLayer_1, Field_1, Graphic_1, Ground_1, Home_1, IconSymbol3DLayer_1, Map_1, Point_1, PointSymbol3D_1, Polyline_1, Popup_1, PopupTemplate_1, request_1, satellite_min_js_1, SceneView_1, SimpleLineSymbol_1, SimpleRenderer_1, Slider_1, SpatialReference_1) {
+define(["require", "exports", "tslib", "esri/support/actions/ActionButton", "esri/Camera", "esri/Map", "esri/layers/FeatureLayer", "esri/layers/support/Field", "esri/Graphic", "esri/Ground", "esri/widgets/Home", "esri/symbols/IconSymbol3DLayer", "esri/geometry/Point", "esri/symbols/PointSymbol3D", "esri/geometry/Polyline", "esri/widgets/Popup", "esri/PopupTemplate", "esri/tasks/support/Query", "esri/request", "node_modules/satellite.js/dist/satellite.min.js", "esri/views/SceneView", "esri/symbols/SimpleLineSymbol", "esri/renderers/SimpleRenderer", "esri/widgets/Slider", "esri/geometry/SpatialReference", "esri/TimeExtent"], function (require, exports, tslib_1, ActionButton_1, Camera_1, Map_1, FeatureLayer_1, Field_1, Graphic_1, Ground_1, Home_1, IconSymbol3DLayer_1, Point_1, PointSymbol3D_1, Polyline_1, Popup_1, PopupTemplate_1, Query_1, request_1, satellite_min_js_1, SceneView_1, SimpleLineSymbol_1, SimpleRenderer_1, Slider_1, SpatialReference_1, TimeExtent_1) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
-    ActionToggle_1 = tslib_1.__importDefault(ActionToggle_1);
+    ActionButton_1 = tslib_1.__importDefault(ActionButton_1);
     Camera_1 = tslib_1.__importDefault(Camera_1);
+    Map_1 = tslib_1.__importDefault(Map_1);
     FeatureLayer_1 = tslib_1.__importDefault(FeatureLayer_1);
     Field_1 = tslib_1.__importDefault(Field_1);
     Graphic_1 = tslib_1.__importDefault(Graphic_1);
     Ground_1 = tslib_1.__importDefault(Ground_1);
     Home_1 = tslib_1.__importDefault(Home_1);
     IconSymbol3DLayer_1 = tslib_1.__importDefault(IconSymbol3DLayer_1);
-    Map_1 = tslib_1.__importDefault(Map_1);
     Point_1 = tslib_1.__importDefault(Point_1);
     PointSymbol3D_1 = tslib_1.__importDefault(PointSymbol3D_1);
     Polyline_1 = tslib_1.__importDefault(Polyline_1);
     Popup_1 = tslib_1.__importDefault(Popup_1);
     PopupTemplate_1 = tslib_1.__importDefault(PopupTemplate_1);
+    Query_1 = tslib_1.__importDefault(Query_1);
     request_1 = tslib_1.__importDefault(request_1);
     satellite_min_js_1 = tslib_1.__importDefault(satellite_min_js_1);
     SceneView_1 = tslib_1.__importDefault(SceneView_1);
@@ -22,10 +23,16 @@ define(["require", "exports", "tslib", "esri/support/actions/ActionToggle", "esr
     SimpleRenderer_1 = tslib_1.__importDefault(SimpleRenderer_1);
     Slider_1 = tslib_1.__importDefault(Slider_1);
     SpatialReference_1 = tslib_1.__importDefault(SpatialReference_1);
+    TimeExtent_1 = tslib_1.__importDefault(TimeExtent_1);
     const TLE = 'data/tle.20200714.txt';
     const OIO = 'data/oio.20200714.txt';
     const NOW = new Date();
-    let start = null;
+    let start; // Start time and camera position for spinning.
+    let timeout; // Timeout for auto-spinning.
+    let satelliteLayerView;
+    let highlight;
+    let pauseEvents = false;
+    let satelliteCount;
     const ephemeris = {};
     const map = new Map_1.default({
         basemap: "satellite",
@@ -82,26 +89,17 @@ define(["require", "exports", "tslib", "esri/support/actions/ActionToggle", "esr
     });
     view.when(() => {
         startSpinning();
+        document.getElementById("menu").classList.remove("is-hidden");
     });
-    view.on(["click", "double-click", "immediate-click", "immediate-double-click", "key-down", "pointer-down", "mouse-wheel"], () => {
-        stopSpinning();
-        if (timeout != undefined) {
-            clearTimeout(timeout);
-        }
-        timeout = setTimeout(() => {
-            startSpinning();
-        }, 3000);
+    view.on(["pointer-down", "pointer-move", "key-down", "mouse-wheel"], () => {
+        startSpinTimer();
     });
-    let timeout;
     view.ui.add(new Home_1.default({ view }), "top-left");
-    document.getElementById("menu").classList.remove("is-hidden");
     view.popup.on("trigger-action", (event) => {
         switch (event.action.id) {
             case "orbit":
                 hideOrbit();
-                if (event.action.value) {
-                    showOrbit(view.popup.selectedFeature);
-                }
+                showOrbit(view.popup.selectedFeature);
                 break;
         }
     });
@@ -302,7 +300,9 @@ define(["require", "exports", "tslib", "esri/support/actions/ActionToggle", "esr
         });
         view.graphics.add(orbit);
     }
-    Promise.all([loadSatellites(), loadMetadata()]).then(([source, collection]) => {
+    Promise.all([loadSatellites(), loadMetadata()]).then(([source, collection]) => tslib_1.__awaiter(void 0, void 0, void 0, function* () {
+        satelliteCount = source.length;
+        clearSatelliteCounter();
         source.forEach((graphic) => {
             const attributes = graphic.attributes;
             const { norad } = attributes;
@@ -357,7 +357,7 @@ define(["require", "exports", "tslib", "esri/support/actions/ActionToggle", "esr
         ];
         const popupTemplate = new PopupTemplate_1.default({
             actions: [
-                new ActionToggle_1.default({
+                new ActionButton_1.default({
                     id: "orbit",
                     title: "Orbit",
                     className: "esri-icon-rotate"
@@ -453,10 +453,14 @@ define(["require", "exports", "tslib", "esri/support/actions/ActionToggle", "esr
             popupTemplate,
             renderer,
             source,
-            spatialReference
+            spatialReference,
+            timeInfo: {
+                startField: "launch"
+            }
         });
         map.add(satelliteLayer);
-    });
+        satelliteLayerView = yield view.whenLayerView(satelliteLayer);
+    }));
     function loadSatellites() {
         const options = {
             responseType: "text"
@@ -536,8 +540,20 @@ define(["require", "exports", "tslib", "esri/support/actions/ActionToggle", "esr
             return collection;
         });
     }
-    function startSpinning() {
+    function startSpinTimer() {
         stopSpinning();
+        if (timeout != undefined) {
+            clearTimeout(timeout);
+        }
+        timeout = setTimeout(() => {
+            startSpinning();
+        }, 3000);
+    }
+    function startSpinning() {
+        if (view.interacting) {
+            startSpinTimer();
+            return;
+        }
         start = {
             animationFrame: requestAnimationFrame(spin)
         };
@@ -576,6 +592,166 @@ define(["require", "exports", "tslib", "esri/support/actions/ActionToggle", "esr
             });
         }
         requestAnimationFrame(spin);
+    }
+    document.getElementById("reset").addEventListener("click", () => {
+        clearSelection();
+    });
+    document.querySelectorAll("#menu .radio-group .radio-group-input").forEach((element) => {
+        element.addEventListener("click", () => {
+            updateSelection();
+        });
+    });
+    sliderLaunch.watch("values", () => updateSelection());
+    sliderPeriod.watch("values", () => updateSelection());
+    sliderInclination.watch("values", () => updateSelection());
+    sliderApogee.watch("values", () => updateSelection());
+    sliderPerigee.watch("values", () => updateSelection());
+    function clearSelection() {
+        highlight === null || highlight === void 0 ? void 0 : highlight.remove();
+        pauseUIEvents();
+        document.getElementById("country-all").checked = true;
+        document.getElementById("type-all").checked = true;
+        document.getElementById("size-all").checked = true;
+        resetSlider(sliderLaunch);
+        resetSlider(sliderPeriod);
+        resetSlider(sliderInclination);
+        resetSlider(sliderApogee);
+        resetSlider(sliderPerigee);
+        resumeUIEvents();
+        clearSatelliteCounter();
+    }
+    function clearSatelliteCounter() {
+        document.getElementById("counter").innerText = `${satelliteCount} Satellites Loaded`;
+    }
+    function updateSatelliteCounter(count) {
+        document.getElementById("counter").innerText = `${count} of ${satelliteCount} Satellites Found`;
+    }
+    function isSliderMaximized(slider) {
+        return slider.values[0] === slider.min && slider.values[1] === slider.max;
+    }
+    function resetSlider(slider) {
+        if (!isSliderMaximized(slider)) {
+            slider.values = [
+                slider.min,
+                slider.max
+            ];
+        }
+    }
+    function pauseUIEvents() {
+        pauseEvents = true;
+    }
+    function resumeUIEvents() {
+        pauseEvents = false;
+    }
+    function updateSelection() {
+        if (pauseEvents) {
+            return;
+        }
+        const country = document.querySelectorAll("#menu .radio-group .radio-group-input[name='country']:checked").item(0).getAttribute("data-country");
+        const type = document.querySelectorAll("#menu .radio-group .radio-group-input[name='type']:checked").item(0).getAttribute("data-type");
+        const size = document.querySelectorAll("#menu .radio-group .radio-group-input[name='size']:checked").item(0).getAttribute("data-size");
+        if (country === "ALL" &&
+            type === "ALL" &&
+            size === "ALL" &&
+            isSliderMaximized(sliderLaunch) &&
+            isSliderMaximized(sliderPeriod) &&
+            isSliderMaximized(sliderInclination) &&
+            isSliderMaximized(sliderApogee) &&
+            isSliderMaximized(sliderPerigee)) {
+            clearSelection();
+            return;
+        }
+        let where = "";
+        if (country !== "ALL") {
+            where += `country='${country}'`;
+        }
+        if (type !== "ALL") {
+            if (where !== "") {
+                where += " AND ";
+            }
+            where += type === "JUNK" ? `(name LIKE '%DEB%' OR name LIKE '%R/B%')` : `(name NOT LIKE '%DEB%' AND name NOT LIKE '%R/B%')`;
+        }
+        if (size !== "ALL") {
+            if (where !== "") {
+                where += " AND ";
+            }
+            where += `size='${size}'`;
+        }
+        let timeExtent = null;
+        if (!isSliderMaximized(sliderLaunch)) {
+            timeExtent = new TimeExtent_1.default({
+                start: new Date(sliderLaunch.values[0], 0, 1),
+                end: new Date(sliderLaunch.values[1], 0, 1),
+            });
+        }
+        if (!isSliderMaximized(sliderPeriod)) {
+            if (where !== "") {
+                where += " AND ";
+            }
+            const period = new Map([
+                [0, 0],
+                [1, 100],
+                [2, 200],
+                [3, 1000],
+                [4, 10000],
+                [5, 60000]
+            ]);
+            const from = period.get(sliderPeriod.values[0]);
+            const to = period.get(sliderPeriod.values[1]);
+            where += `(period BETWEEN ${from} AND ${to})`;
+        }
+        if (!isSliderMaximized(sliderInclination)) {
+            if (where !== "") {
+                where += " AND ";
+            }
+            const from = sliderInclination.values[0];
+            const to = sliderInclination.values[1];
+            where += `(inclination BETWEEN ${from} AND ${to})`;
+        }
+        if (!isSliderMaximized(sliderApogee)) {
+            if (where !== "") {
+                where += " AND ";
+            }
+            const apogee = new Map([
+                [0, 0],
+                [1, 1000],
+                [2, 2000],
+                [3, 5000],
+                [4, 100000],
+                [5, 600000]
+            ]);
+            const from = apogee.get(sliderApogee.values[0]);
+            const to = apogee.get(sliderApogee.values[1]);
+            where += `(apogee BETWEEN ${from} AND ${to})`;
+        }
+        if (!isSliderMaximized(sliderPerigee)) {
+            if (where !== "") {
+                where += " AND ";
+            }
+            const perigee = new Map([
+                [0, 0],
+                [1, 1000],
+                [2, 2000],
+                [3, 5000],
+                [4, 100000],
+                [5, 600000]
+            ]);
+            const from = perigee.get(sliderPerigee.values[0]);
+            const to = perigee.get(sliderPerigee.values[1]);
+            where += `(perigee BETWEEN ${from} AND ${to})`;
+        }
+        const query = new Query_1.default({
+            timeExtent,
+            where
+        });
+        const { layer } = satelliteLayerView;
+        layer.queryFeatures(query).then((featureSet) => {
+            highlight === null || highlight === void 0 ? void 0 : highlight.remove();
+            highlight = satelliteLayerView.highlight(featureSet.features);
+        });
+        layer.queryFeatureCount(query).then((count) => {
+            updateSatelliteCounter(count);
+        });
     }
 });
 //# sourceMappingURL=main.js.map

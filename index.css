@@ -5,11 +5,23 @@ html, body, #viewDiv {
   margin: 0;
   height: 100%;
   width: 100%;
-  font-family: "Avenir Next W00", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  /* font-family: "Avenir Next W00", "Helvetica Neue", Helvetica, Arial, sans-serif; */
 }
 
 #viewDiv canvas {
   filter: saturate(2);
+}
+
+#counter {
+  position: absolute;
+  left: 0;
+  right: 325px;
+  bottom: 20px;
+  text-align: center;
+  font-size: 26px;
+  font-weight: 700;
+  pointer-events: none;
+  color: white;
 }
 
 #menu {
@@ -20,6 +32,7 @@ html, body, #viewDiv {
   width: 325px;
   padding-left: 14px;
   padding-right: 14px;
+  padding-top: 10px;
   overflow-x: hidden;
   overflow-y: auto;
 }

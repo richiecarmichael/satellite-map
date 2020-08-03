@@ -67,6 +67,10 @@ html, body, #viewDiv {
   margin-bottom: 10px;
 }
 
+#filter-menu fieldset-radio label {
+  font-size: 12px;
+}
+
 #orbit, #report {
   border-top: solid 1px rgba(110,110,110,0.3);
 }

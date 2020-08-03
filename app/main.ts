@@ -259,7 +259,7 @@ const countryRenderer = new UniqueValueRenderer({
           primitive: "square"
         },
         material: {
-          color: [255, 255, 255, 0.5]
+          color: [255, 255, 255, 0]
         },
         outline: null
       })
@@ -314,6 +314,62 @@ const countryRenderer = new UniqueValueRenderer({
             },
             material: {
               color: "cyan"
+            },
+            outline: null
+          })
+        ]
+      })
+    }
+  ]
+});
+
+const junkRenderer = new UniqueValueRenderer({
+  valueExpression: "When(Find('DEB', $feature.name) != -1, 'debris', Find('R/B', $feature.name) != -1, 'rocket-booster', null)",
+  defaultSymbol: new PointSymbol3D({
+    symbolLayers: [
+      new IconSymbol3DLayer({
+        size: 1.5,
+        resource: {
+          primitive: "square"
+        },
+        material: {
+          color: [255, 255, 255, 0]
+        },
+        outline: null
+      })
+    ]
+  }),
+  uniqueValueInfos: [
+    {
+      value: "debris",
+      label: "Debris",
+      symbol: new PointSymbol3D({
+        symbolLayers: [
+          new IconSymbol3DLayer({
+            size: 1.5,
+            resource: {
+              primitive: "square"
+            },
+            material: {
+              color: "cyan"
+            },
+            outline: null
+          })
+        ]
+      })
+    },
+    {
+      value: "rocket-booster",
+      label: "Rocket Booster",
+      symbol: new PointSymbol3D({
+        symbolLayers: [
+          new IconSymbol3DLayer({
+            size: 1.5,
+            resource: {
+              primitive: "square"
+            },
+            material: {
+              color: "red"
             },
             outline: null
           })
@@ -454,8 +510,23 @@ themes.set("landsat", {
     visible: true
   }
 });
+themes.set("starlink", {
+  filter: new FeatureFilter({
+    where: `name LIKE 'STARLINK-%'`
+  }),
+  satellite: {
+    labelsVisible: true,
+    renderer: satelliteRenderer,
+    visible: true
+  },
+  orbit: {
+    visible: false
+  }
+});
 themes.set("country", {
-  filter: null,
+  filter: new FeatureFilter({
+    where: `country IN ('PRC','CIS','US')`
+  }),
   satellite: {
     labelsVisible: false,
     renderer: countryRenderer,
@@ -467,11 +538,11 @@ themes.set("country", {
 });
 themes.set("junk", {
   filter: new FeatureFilter({
-    where: `(name LIKE '%DEB%' OR name LIKE '%R/B%')`
+    where: `name LIKE '%DEB%' OR name LIKE '%R/B%'`
   }),
   satellite: {
     labelsVisible: false,
-    renderer: satelliteRenderer,
+    renderer: junkRenderer,
     visible: true
   },
   orbit: {

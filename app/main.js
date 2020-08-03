@@ -153,7 +153,7 @@ define(["require", "exports", "tslib", "esri/support/actions/ActionButton", "esr
                         primitive: "square"
                     },
                     material: {
-                        color: [255, 255, 255, 0.5]
+                        color: [255, 255, 255, 0]
                     },
                     outline: null
                 })
@@ -208,6 +208,61 @@ define(["require", "exports", "tslib", "esri/support/actions/ActionButton", "esr
                             },
                             material: {
                                 color: "cyan"
+                            },
+                            outline: null
+                        })
+                    ]
+                })
+            }
+        ]
+    });
+    const junkRenderer = new renderers_1.UniqueValueRenderer({
+        valueExpression: "When(Find('DEB', $feature.name) != -1, 'debris', Find('R/B', $feature.name) != -1, 'rocket-booster', null)",
+        defaultSymbol: new symbols_1.PointSymbol3D({
+            symbolLayers: [
+                new symbols_1.IconSymbol3DLayer({
+                    size: 1.5,
+                    resource: {
+                        primitive: "square"
+                    },
+                    material: {
+                        color: [255, 255, 255, 0]
+                    },
+                    outline: null
+                })
+            ]
+        }),
+        uniqueValueInfos: [
+            {
+                value: "debris",
+                label: "Debris",
+                symbol: new symbols_1.PointSymbol3D({
+                    symbolLayers: [
+                        new symbols_1.IconSymbol3DLayer({
+                            size: 1.5,
+                            resource: {
+                                primitive: "square"
+                            },
+                            material: {
+                                color: "cyan"
+                            },
+                            outline: null
+                        })
+                    ]
+                })
+            },
+            {
+                value: "rocket-booster",
+                label: "Rocket Booster",
+                symbol: new symbols_1.PointSymbol3D({
+                    symbolLayers: [
+                        new symbols_1.IconSymbol3DLayer({
+                            size: 1.5,
+                            resource: {
+                                primitive: "square"
+                            },
+                            material: {
+                                color: "red"
                             },
                             outline: null
                         })
@@ -347,8 +402,23 @@ define(["require", "exports", "tslib", "esri/support/actions/ActionButton", "esr
             visible: true
         }
     });
+    themes.set("starlink", {
+        filter: new FeatureFilter_1.default({
+            where: `name LIKE 'STARLINK-%'`
+        }),
+        satellite: {
+            labelsVisible: true,
+            renderer: satelliteRenderer,
+            visible: true
+        },
+        orbit: {
+            visible: false
+        }
+    });
     themes.set("country", {
-        filter: null,
+        filter: new FeatureFilter_1.default({
+            where: `country IN ('PRC','CIS','US')`
+        }),
         satellite: {
             labelsVisible: false,
             renderer: countryRenderer,
@@ -360,11 +430,11 @@ define(["require", "exports", "tslib", "esri/support/actions/ActionButton", "esr
     });
     themes.set("junk", {
         filter: new FeatureFilter_1.default({
-            where: `(name LIKE '%DEB%' OR name LIKE '%R/B%')`
+            where: `name LIKE '%DEB%' OR name LIKE '%R/B%'`
         }),
         satellite: {
             labelsVisible: false,
-            renderer: satelliteRenderer,
+            renderer: junkRenderer,
             visible: true
         },
         orbit: {

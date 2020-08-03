@@ -5,7 +5,6 @@ html, body, #viewDiv {
   margin: 0;
   height: 100%;
   width: 100%;
-  /* font-family: "Avenir Next W00", "Helvetica Neue", Helvetica, Arial, sans-serif; */
 }
 
 #viewDiv canvas {
@@ -24,12 +23,12 @@ html, body, #viewDiv {
   color: white;
 }
 
-#menu {
+#filter-menu {
   position: absolute;
   top: 20px;
   right: 20px;
   bottom: 20px;
-  width: 325px;
+  width: 300px;
   padding-left: 14px;
   padding-right: 14px;
   padding-top: 10px;
@@ -37,40 +36,42 @@ html, body, #viewDiv {
   overflow-y: auto;
 }
 
-#menu h4 {
-  margin-top: 10px;
-  margin-bottom: 5px;
-}
-
-#menu .esri-slider {
+#filter-menu .esri-slider {
   margin-top: 25px;
-  margin-left: 14px;
+  margin-left: 30px;
   margin-bottom: 45px;
+  margin-right: 20px;
   width: 240px;
   height: 20px;
 }
 
-#menu .esri-slider__segment-1 {
+#filter-menu .esri-slider__segment-1 {
   background-color: #0079c1;
   height:6px;
   margin-top:-1px
 }
 
-#menu .esri-slider__segment-0,
-#menu .esri-slider__segment-2 {
+#filter-menu .esri-slider__segment-0,
+#filter-menu .esri-slider__segment-2 {
   background-color: rgba(110,110,110,0.4);
 }
 
-#menu .esri-slider__thumb {
+#filter-menu .esri-slider__thumb {
   border-width: 3px;
   top: -6px;
 }
 
-#menu .radio-group {
-  margin-bottom: 0;
+#filter-menu legend {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 10px;
 }
 
-#menu .radio-group.country label {
-  width: 55px;
-  margin-top: 0;
+#orbit, #report {
+  border-top: solid 1px rgba(110,110,110,0.3);
+}
+
+#tools .satellite-selected {
+  background:#4c4c4c;
+  color:#fff
 }

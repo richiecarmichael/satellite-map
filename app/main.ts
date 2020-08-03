@@ -1,27 +1,52 @@
 import ActionButton from "esri/support/actions/ActionButton";
 import Camera from "esri/Camera";
 import EsriMap from "esri/Map";
+import FeatureFilter from "esri/views/layers/support/FeatureFilter";
 import FeatureLayer from "esri/layers/FeatureLayer";
 import FeatureLayerView from "esri/views/layers/FeatureLayerView";
 import Field from "esri/layers/support/Field"
 import Graphic from "esri/Graphic";
 import Ground from "esri/Ground";
 import Home from "esri/widgets/Home";
-import IconSymbol3DLayer from "esri/symbols/IconSymbol3DLayer";
-import Point from "esri/geometry/Point";
-import PointSymbol3D from "esri/symbols/PointSymbol3D"
-import Polyline from "esri/geometry/Polyline";
+import LabelClass from "esri/layers/support/LabelClass";
+import Legend from "esri/widgets/Legend";
 import Popup from "esri/widgets/Popup";
 import PopupTemplate from "esri/PopupTemplate";
 import Query from "esri/tasks/support/Query";
 import Request from "esri/request";
 import Satellite from "node_modules/satellite.js/dist/satellite.min.js";
 import SceneView from "esri/views/SceneView";
-import SimpleLineSymbol from "esri/symbols/SimpleLineSymbol";
-import SimpleRenderer from "esri/renderers/SimpleRenderer";
 import Slider from "esri/widgets/Slider";
-import SpatialReference from "esri/geometry/SpatialReference";
 import TimeExtent from "esri/TimeExtent";
+import { IconSymbol3DLayer, PointSymbol3D, LabelSymbol3D, LineSymbol3D, LineSymbol3DLayer, TextSymbol3DLayer } from "esri/symbols"
+import { Point, Polyline, SpatialReference } from "esri/geometry";
+import { Renderer, SimpleRenderer, UniqueValueRenderer } from 'esri/renderers';
+
+interface attributes extends metadata {
+  /*
+   * Object Id
+   * Sequential unique identifier used by the layer.
+   */
+  oid: number;
+  /*
+   * NORAD ID
+   * Sequential five-digit number assigned by USSTRATCOM (United States Strategic Command) in
+   * order of discovery to all artificial objects in Earth orbit and space probes launched from
+   * Earth.
+   * https://en.wikipedia.org/wiki/Satellite_Catalog_Number
+   */
+  norad: number;
+}
+
+interface coordinate {
+  x: number;
+  y: number;
+  z: number;
+}
+
+interface indexedMetadata {
+  [ norad: number ] : metadata
+}
 
 interface metadata {
   /*
@@ -73,34 +98,21 @@ interface metadata {
   size: string;
 }
 
-interface attributes extends metadata {
-  /*
-   * Object Id
-   * Sequential unique identifier used by the layer.
-   */
-  oid: number;
-  /*
-   * NORAD ID
-   * Sequential five-digit number assigned by USSTRATCOM (United States Strategic Command) in
-   * order of discovery to all artificial objects in Earth orbit and space probes launched from
-   * Earth.
-   * https://en.wikipedia.org/wiki/Satellite_Catalog_Number
-   */
+interface Layers {
+  filter: FeatureFilter,
+  orbit: Omit<LayerProps, "labelsVisible" | "renderer">
+  satellite: LayerProps
+}
+
+interface LayerProps {
+  labelsVisible: boolean,
+  renderer: Renderer;
+  visible: boolean
+}
+
+interface satellite {
   norad: number;
-}
-
-interface indexedMetadata {
-  [ norad: number ] : metadata
-}
-
-interface indexedSatelliteEphemeris {
-  [ oid: number ] : satrec
-}
-
-interface coordinate {
-  x: number;
-  y: number;
-  z: number;
+  satrec: satrec;
 }
 
 interface start {
@@ -109,31 +121,424 @@ interface start {
   camera?: Camera;
 }
 
+const GPS = [
+  24876, // USA-132
+  25933, // USA-145
+  26360, // USA-150
+  26407, // USA-151
+  27663, // USA-166
+  27704, // USA-168
+  28129, // USA-175
+  28190, // USA-177
+  28474, // USA-180
+  28874, // USA-183
+  29486, // USA-190
+  29601, // USA-192
+  32260, // USA-196
+  32384, // USA-199
+  32711, // USA-201
+  35752, // USA-206
+  36585, // USA-213
+  37753, // USA-232
+  38833, // USA-239
+  39166, // USA-242
+  39533, // USA-248
+  39741, // USA-251
+  40105, // USA-256
+  40294, // USA-258
+  40534, // USA-260
+  40730, // USA-262
+  41019, // USA-265
+  41328, // USA-266
+  40730, // USA-289
+  44506, // USA-293 (NAVSTAR 78)
+  45854  // USA-304 (NAVSTAR 79)
+];
+const GLONASS = [
+  32276, // Kosmos 2432
+  32275, // Kosmos 2433
+  32393, // Kosmos 2434
+  32395, // Kosmos 2436
+  36111, // Kosmos 2456
+  36400, // Kosmos 2459
+  36402, // Kosmos 2460
+  36401, // Kosmos 2461
+  37139, // Kosmos 2464
+  37869, // Kosmos 2475
+  37867, // Kosmos 2476
+  37868, // Kosmos 2477
+  39155, // Kosmos 2485
+  39620, // Kosmos 2494
+  40001, // Kosmos 2500
+  40315, // Kosmos 2501
+  41330, // Kosmos 2514
+  41554, // Kosmos 2516
+  42939, // Kosmos 2522
+  43508, // Kosmos 2527
+  43687, // Kosmos 2529
+  44299, // Kosmos 2534
+  44850, // Kosmos 2544
+  45358  // Kosmos 2545
+];
+const INMARSAT = [
+  8697, // Marisat 1
+  8882, // Marisat 2
+  9478, // Marisat 3
+  20918, // INMARSAT 2-F1
+  21149, // INMARSAT 2-F2
+  21814, // INMARSAT 2-F3
+  21940, // INMARSAT 2-F4
+  23839, // INMARSAT 3-F1
+  24307, // INMARSAT 3-F2
+  24674, // INMARSAT 3-F3
+  24819, // INMARSAT 3-F4
+  25153, // INMARSAT 3-F5
+  28628, // INMARSAT 4-F1
+  28899, // INMARSAT 4-F2
+  33278, // INMARSAT 4-F3
+  39476, // INMARSAT 5-F1
+  40384, // INMARSAT 5-F2
+  40882, // INMARSAT 5-F3
+  42698, // INMARSAT 5-F4
+  44801  // INMARSAT GX5
+];
+const LANDSAT = [
+  6126,  // Landsat 1
+  7615,  // Landsat 2
+  10702, // Landsat 3
+  13367, // Landsat 4
+  14780, // Landsat 5
+  25682, // Landsat 7
+  39084  // Landsat 8
+];
+const DIGITALGLOBE = [
+  25919, // IKONOS
+  33331, // GeoEye-1
+  32060, // WorldView-1
+  35946, // WorldView-2
+  40115, // WorldView-3
+  41848  // WorldView-4
+];
+const FENGUYIN_DEBRIS = "FENGYUN 1C DEB";
+const ISS = 25544;
+const VANGUARD_1 = 5;
+
+const LOW_ORBIT = 2000;
+const GEOSYNCHRONOUS_ORBIT = 35786;
+const geosyncMin = GEOSYNCHRONOUS_ORBIT * 0.98;
+const geosyncMax = GEOSYNCHRONOUS_ORBIT * 1.02;
+
+const NASA_SATELLITE_DATABASE = 'https://nssdc.gsfc.nasa.gov/nmc/spacecraft/display.action?id='; // use International id
+const N2YO_SATELLITE_DATABASE = 'https://www.n2yo.com/satellite/?s=';                            // use NORAD id
+
+const satelliteRenderer = new SimpleRenderer({
+  label: "Satellites",
+  symbol: new PointSymbol3D({
+    symbolLayers: [
+      new IconSymbol3DLayer({
+        size: 1.5,
+        resource: {
+          primitive: "square"
+        },
+        material: {
+          color: [255, 255, 255, 0.5]
+        },
+        outline: null
+      })
+    ]
+  })
+});
+
+const countryRenderer = new UniqueValueRenderer({
+  field: "country",
+  defaultSymbol: new PointSymbol3D({
+    symbolLayers: [
+      new IconSymbol3DLayer({
+        size: 1.5,
+        resource: {
+          primitive: "square"
+        },
+        material: {
+          color: [255, 255, 255, 0.5]
+        },
+        outline: null
+      })
+    ]
+  }),
+  uniqueValueInfos: [
+    {
+      value: "PRC",
+      label: "China",
+      symbol: new PointSymbol3D({
+        symbolLayers: [
+          new IconSymbol3DLayer({
+            size: 1.5,
+            resource: {
+              primitive: "square"
+            },
+            material: {
+              color: "yellow"
+            },
+            outline: null
+          })
+        ]
+      })
+    },
+    {
+      value: "CIS",
+      label: "Russia",
+      symbol: new PointSymbol3D({
+        symbolLayers: [
+          new IconSymbol3DLayer({
+            size: 1.5,
+            resource: {
+              primitive: "square"
+            },
+            material: {
+              color: "red"
+            },
+            outline: null
+          })
+        ]
+      })
+    },
+    {
+      value: "US",
+      label: "United States",
+      symbol: new PointSymbol3D({
+        symbolLayers: [
+          new IconSymbol3DLayer({
+            size: 1.5,
+            resource: {
+              primitive: "square"
+            },
+            material: {
+              color: "cyan"
+            },
+            outline: null
+          })
+        ]
+      })
+    }
+  ]
+});
+
+const themes = new Map<string, Layers>();
+themes.set("low", {
+  filter: new FeatureFilter({
+    where: `apogee <= ${LOW_ORBIT} AND perigee <= ${LOW_ORBIT}`
+  }),
+  satellite: {
+    labelsVisible: false,
+    renderer: satelliteRenderer,
+    visible: true
+  },
+  orbit: {
+    visible: false
+  }
+});
+themes.set("medium", {
+  filter: new FeatureFilter({
+    where: `(apogee >= ${LOW_ORBIT} AND apogee <= ${geosyncMin}) AND (perigee >= ${LOW_ORBIT} AND perigee <= ${geosyncMin})`
+  }),
+  satellite: {
+    labelsVisible: false,
+    renderer: satelliteRenderer,
+    visible: true
+  },
+  orbit: {
+    visible: true
+  }
+});
+themes.set("high", {
+  filter: new FeatureFilter({
+    where: `apogee > ${geosyncMax} OR perigee > ${geosyncMax}`
+  }),
+  satellite: {
+    labelsVisible: false,
+    renderer: satelliteRenderer,
+    visible: true
+  },
+  orbit: {
+    visible: true
+  }
+});
+themes.set("geosynchronous", {
+  filter: new FeatureFilter({
+    where: `(apogee >= ${geosyncMin} AND apogee <= ${geosyncMax}) AND (perigee >= ${geosyncMin} AND perigee <= ${geosyncMax})`
+  }),
+  satellite: {
+    labelsVisible: false,
+    renderer: satelliteRenderer,
+    visible: true
+  },
+  orbit: {
+    visible: true
+  }
+});
+themes.set("geostationary", {
+  filter: new FeatureFilter({
+    where: `(apogee >= ${geosyncMin} AND apogee <= ${geosyncMax}) AND (perigee >= ${geosyncMin} AND perigee <= ${geosyncMax}) AND (inclination >= 0 AND inclination <= 1)`
+  }),
+  satellite: {
+    labelsVisible: false,
+    renderer: satelliteRenderer,
+    visible: true
+  },
+  orbit: {
+    visible: false
+  }
+});
+themes.set("digitalglobe", {
+  filter: new FeatureFilter({
+    where: `norad IN (${DIGITALGLOBE.join(",")})`
+  }),
+  satellite: {
+    labelsVisible: true,
+    renderer: satelliteRenderer,
+    visible: true
+  },
+  orbit: {
+    visible: true
+  }
+});
+themes.set("inmarsat", {
+  filter: new FeatureFilter({
+    where: `norad IN (${INMARSAT.join(",")})`
+  }),
+  satellite: {
+    labelsVisible: true,
+    renderer: satelliteRenderer,
+    visible: true
+  },
+  orbit: {
+    visible: true
+  }
+});
+themes.set("glonass", {
+  filter: new FeatureFilter({
+    where: `norad IN (${GLONASS.join(",")})`
+  }),
+  satellite: {
+    labelsVisible: true,
+    renderer: satelliteRenderer,
+    visible: true
+  },
+  orbit: {
+    visible: true
+  }
+});
+themes.set("gps", {
+  filter: new FeatureFilter({
+    where: `norad IN (${GPS.join(",")})`
+  }),
+  satellite: {
+    labelsVisible: true,
+    renderer: satelliteRenderer,
+    visible: true
+  },
+  orbit: {
+    visible: true
+  }
+});
+themes.set("landsat", {
+  filter: new FeatureFilter({
+    where: `norad IN (${LANDSAT.join(",")})`
+  }),
+  satellite: {
+    labelsVisible: true,
+    renderer: satelliteRenderer,
+    visible: true
+  },
+  orbit: {
+    visible: true
+  }
+});
+themes.set("country", {
+  filter: null,
+  satellite: {
+    labelsVisible: false,
+    renderer: countryRenderer,
+    visible: true
+  },
+  orbit: {
+    visible: false
+  }
+});
+themes.set("junk", {
+  filter: new FeatureFilter({
+    where: `(name LIKE '%DEB%' OR name LIKE '%R/B%')`
+  }),
+  satellite: {
+    labelsVisible: false,
+    renderer: satelliteRenderer,
+    visible: true
+  },
+  orbit: {
+    visible: false
+  }
+});
+themes.set("date", {
+  filter: new FeatureFilter({
+    where: `(name LIKE '%DEB%' OR name LIKE '%R/B%')`
+  }),
+  satellite: {
+    labelsVisible: false,
+    renderer: satelliteRenderer,
+    visible: true
+  },
+  orbit: {
+    visible: false
+  }
+});
+themes.set("debris", {
+  filter: new FeatureFilter({
+    where: `name='${FENGUYIN_DEBRIS}'`
+  }),
+  satellite: {
+    labelsVisible: false,
+    renderer: satelliteRenderer,
+    visible: true
+  },
+  orbit: {
+    visible: false
+  }
+});
+themes.set("iss", {
+  filter: new FeatureFilter({
+    where: `norad=${ISS}`
+  }),
+  satellite: {
+    labelsVisible: true,
+    renderer: satelliteRenderer,
+    visible: true
+  },
+  orbit: {
+    visible: true
+  }
+});
+themes.set("vanguard-1", {
+  filter: new FeatureFilter({
+    where: `norad=${VANGUARD_1}`
+  }),
+  satellite: {
+    labelsVisible: true,
+    renderer: satelliteRenderer,
+    visible: true
+  },
+  orbit: {
+    visible: true
+  }
+});
+
 const TLE = 'data/tle.20200714.txt';
 const OIO = 'data/oio.20200714.txt';
 const NOW = new Date();
+const numberFormatter = new Intl.NumberFormat();
 
-let start: start;        // Start time and camera position for spinning.
-let timeout: number;     // Timeout for auto-spinning.
-let satelliteLayerView: FeatureLayerView;
-let highlight: any;
-let pauseEvents: boolean = false;
+let start: start;    // Start time and camera position for spinning.
+let timeout: number; // Timeout for auto-spinning.
 let satelliteCount: number;
-
-const ephemeris: indexedSatelliteEphemeris = {};
-
-const map = new EsriMap({
-  basemap: "satellite",
-  ground: new Ground()
-});
-
-const popup = new Popup({
-  collapseEnabled: true,
-  dockEnabled: false,
-  dockOptions: {
-    buttonEnabled: true
-  }
-});
 
 const view = new SceneView({
   alphaCompositingEnabled: true,
@@ -141,7 +546,7 @@ const view = new SceneView({
     position: {
       x: 0,
       y: 20, 
-      z: 1e8
+      z: 3e8
     },
     heading: 0,
     tilt: 0
@@ -149,12 +554,12 @@ const view = new SceneView({
   constraints: {
     altitude: {
       min: 1e6,
-      max: 2e8
+      max: 1e9
     },
     clipDistance: {
       mode: "manual",
       near: 1e5,
-      far: 3e8
+      far: 1e9 + 5e7,
     }
   },
   container: "viewDiv",
@@ -170,253 +575,102 @@ const view = new SceneView({
       directShadowsEnabled: false
     }
   },
-  map,
+  map: new EsriMap({
+    basemap: "satellite",
+    ground: new Ground()
+  }),
   padding: {
-    right: 325
+    right: 300
   },
-  popup,
+  popup: new Popup({
+    collapseEnabled: true,
+    dockEnabled: false,
+    dockOptions: {
+      buttonEnabled: true
+    }
+  }),
   qualityProfile: "high"
 });
 
 view.when(() => {
   startSpinning();
-  document.getElementById("menu").classList.remove("is-hidden");
-});
-view.on(["pointer-down", "pointer-move", "key-down", "mouse-wheel"], () => {
-  startSpinTimer();
+  document.getElementById("filter-menu").classList.remove("is-hidden");
+  //document.getElementById("tools").classList.remove("is-hidden");
 });
 
-view.ui.add(new Home({ view }), "top-left");
+view.on(["pointer-down", "pointer-move", "key-down", "mouse-wheel"], () => {
+    startSpinTimer();
+});
 
 view.popup.on("trigger-action", (event) => {
+  const attributes: attributes = view.popup.selectedFeature.attributes;
+  const { int, norad } = attributes;
+
   switch(event.action.id) {
-    case "orbit":
-      hideOrbit();
-      showOrbit(view.popup.selectedFeature);
+    case "nasa":
+      const url1 = `${NASA_SATELLITE_DATABASE}${int}`;
+      break;
+    case "n2yo":
+      const url2 = `${N2YO_SATELLITE_DATABASE}${norad}`;
       break;
   }
 });
 
-view.popup.watch("visible", (visible) => {
-  if (!visible) {
-    hideOrbit();
-  }
-});
+view.ui.add(new Home({ view }), "top-left");
+//view.ui.add(new Legend({ view }), "bottom-left");
+view.ui.add("tools", "top-left");
 
-const sliderLaunch = new Slider({
-  container: "sliderLaunch",
-  min: 1950,
-  max: 2025,
-  values: [ 1950, 2025 ],
-  snapOnClickEnabled: true,
-  visibleElements: {
-    labels: true,
-    rangeLabels: false
-  },
-  steps: 1,
-  tickConfigs: [{
-    mode: "position",
-    values: [1950, 1960, 1970, 1980, 1990, 2000, 2010, 2020],
-    labelsVisible: true
-  }],
-  labelFormatFunction: (value, type) => {
-    switch(type) {
-      case "tick":
-        const twoDigitYear = value.toString().substring(2);
-        return `'${twoDigitYear}`;
-      case "value":
-        return `${value}`;
-    }
-  }
-});
-
-const sliderPeriod = new Slider({
-  container: "sliderPeriod",
-  min: 0,
-  max: 5,
-  values: [ 0, 5 ],
-  snapOnClickEnabled: true,
-  visibleElements: {
-    labels: true,
-    rangeLabels: false
-  },
-  steps: 1,
-  tickConfigs: [{
-    mode: "position",
-    values: [0, 1, 2, 3, 4, 5],
-    labelsVisible: true
-  }],
-  labelFormatFunction: (value, type) => {
-    switch(type) {
-      case "tick":
-      case "value":
-        switch (value) {
-          case 0:
-            return "0";
-          case 1:
-            return "100";
-          case 2:
-            return "200";
-          case 3:
-            return "1K";
-          case 4:
-            return "10K";
-          case 5:
-            return "60K";
-        }
-    }
-  }
-});
-
-const sliderInclination = new Slider({
-  container: "sliderInclination",
-  min: 0,
-  max: 160,
-  values: [ 0, 160 ],
-  snapOnClickEnabled: true,
-  visibleElements: {
-    labels: true,
-    rangeLabels: false
-  },
-  steps: 1,
-  tickConfigs: [{
-    mode: "position",
-    values: [0, 30, 60, 90, 120, 150],
-    labelsVisible: true
-  }],
-  labelFormatFunction: (value, type) => {
-    switch(type) {
-      case "tick":
-      case "value":
-        return `${value}°`;
-    }
-  }
-});
-
-const sliderApogee = new Slider({
-  container: "sliderApogee",
-  min: 0,
-  max: 5,
-  values: [ 0, 5 ],
-  snapOnClickEnabled: true,
-  visibleElements: {
-    labels: true,
-    rangeLabels: false
-  },
-  steps: 1,
-  tickConfigs: [{
-    mode: "position",
-    values: [0, 1, 2, 3, 4, 5],
-    labelsVisible: true
-  }],
-  labelFormatFunction: (value, type) => {
-    switch(type) {
-      case "tick":
-      case "value":
-        switch (value) {
-          case 0:
-            return "0";
-          case 1:
-            return "1K";
-          case 2:
-            return "2K";
-          case 3:
-            return "5K";
-          case 4:
-            return "10K";
-          case 5:
-            return "600K";
-        }
-    }
-  }
-});
-
-const sliderPerigee = new Slider({
-  container: "sliderPerigee",
-  min: 0,
-  max: 5,
-  values: [ 0, 5 ],
-  snapOnClickEnabled: true,
-  visibleElements: {
-    labels: true,
-    rangeLabels: false
-  },
-  steps: 1,
-  tickConfigs: [{
-    mode: "position",
-    values: [0, 1, 2, 3, 4, 5],
-    labelsVisible: true
-  }],
-  labelFormatFunction: (value, type) => {
-    switch(type) {
-      case "tick":
-      case "value":
-        switch (value) {
-          case 0:
-            return "0";
-          case 1:
-            return "1K";
-          case 2:
-            return "2K";
-          case 3:
-            return "5K";
-          case 4:
-            return "10K";
-          case 5:
-            return "600K";
-        }
-    }
-  }
-});
-
-function hideOrbit(): void {
-  view.graphics.removeAll();
-}
-
-function showOrbit(satellite: Graphic): void {
-  const attributes: attributes = satellite.attributes;
-  const { oid, period } = attributes;
-  const satrec = ephemeris[oid];
-
-  const SEGMENTS = 100;
-  const milliseconds = period * 60000 / SEGMENTS;
-  
-  const vertices: coordinate[] = [];
-  for (let i = 0; i <= SEGMENTS; i++) {
-    const date = new Date(NOW.getTime() + i * milliseconds);
-    const satelliteLocation = getSatelliteLocation(satrec, date);
-    if (!satelliteLocation) { continue; }
-    vertices.push(satelliteLocation);
-  }
-
-  const orbit = new Graphic({
-    geometry: new Polyline({
-      paths: [
-        vertices.map((coordinate) => [coordinate.x, coordinate.y, coordinate.z ])
-      ]
-    }),
-    symbol: new SimpleLineSymbol({
-      color: "white",
-      width: 1
-    })
-  });
-
-  view.graphics.add(orbit);
-}
-
-Promise.all([loadSatellites(), loadMetadata()]).then(async ([source, collection]) => {
+Promise.all([loadSatellites(), loadMetadata()]).then(([source, collection]) => {
   satelliteCount = source.length;
-  clearSatelliteCounter();
+  //clearSatelliteCounter();
 
-  source.forEach((graphic) => {
-    const attributes: attributes = graphic.attributes;
-    const { norad } = attributes;
+  const satelliteGraphics = source.map((s, oid) => {
+    const { norad, satrec } = s;
     const metadata = collection[norad];
-    graphic.attributes = {
-      ...attributes,
+    const coordinate = getSatelliteLocation(satrec, NOW);
+    if (!coordinate) { return; }
+    const geometry = new Point(coordinate);
+
+    const attributes: attributes = {
+      oid,
+      norad,
       ...metadata
     };
-  });
+
+    return new Graphic({
+      attributes,
+      geometry
+    });
+  }).filter((f) => f);
+
+  const orbitGraphics = source.map((s, oid) => {
+    const { norad, satrec } = s;
+    const metadata = collection[norad];
+    if (!metadata) { return; }
+    const { period } = metadata;
+
+    const coordinates = getOrbit(satrec, period, NOW);
+
+    const attributes: attributes = {
+      oid,
+      norad,
+      ...metadata
+    };
+    
+    const orbit = new Graphic({
+      attributes,
+      geometry: new Polyline({
+        paths: [
+          coordinates.map((coordinate) => [
+            coordinate.x,
+            coordinate.y,
+            coordinate.z
+          ])
+        ]
+      })
+    });
+    return orbit;
+  }).filter((s) => s);
 
   const fields = [
     new Field({
@@ -468,9 +722,14 @@ Promise.all([loadSatellites(), loadMetadata()]).then(async ([source, collection]
   const popupTemplate = new PopupTemplate({
     actions: [
       new ActionButton({
-        id: "orbit",
-        title: "Orbit",
-        className: "esri-icon-rotate"
+        id: "nasa",
+        title: "Nasa",
+        className: "esri-icon-link"
+      }),
+      new ActionButton({
+        id: "n2yo",
+        title: "N2YO",
+        className: "esri-icon-link"
       })
     ],
     overwriteActions: true,
@@ -537,81 +796,129 @@ Promise.all([loadSatellites(), loadMetadata()]).then(async ([source, collection]
     }]
   });
 
-  const renderer = new SimpleRenderer({
-    label: "Satellites",
-    symbol: new PointSymbol3D({
+  const spatialReference = SpatialReference.WebMercator;
+
+  const labelingInfo = [
+    new LabelClass({
+      labelExpressionInfo: {
+        expression: "$feature.name"
+      },
+      labelPlacement: "above-center",
+      symbol: new LabelSymbol3D({
+        symbolLayers: [
+          new TextSymbol3DLayer({
+            material: {
+              color: [255, 255, 255, 1]
+            },
+            size: 10
+          })
+        ]
+      })
+    })
+  ];
+
+  const orbitRenderer = new SimpleRenderer({
+    label: "Satellite Orbit",
+    symbol: new LineSymbol3D({
       symbolLayers: [
-        new IconSymbol3DLayer({
-          size: 1.5,
-          resource: {
-            primitive: "square"
-          },
+        new LineSymbol3DLayer({
+          size: 1,
           material: {
-            color: "white"
-          },
-          outline: null
+            color: [255, 255, 255, 0.1]
+          }
         })
       ]
     })
   });
 
-  const spatialReference = SpatialReference.WebMercator;
+  const copyright = "space-track.org";
+  const objectIdField = "oid";
 
-  const satelliteLayer = new FeatureLayer({
-    id: "satellite",
-    copyright: "space-track.org",
-    fields,  
-    geometryType: "point",
-    objectIdField: "oid",
-    popupTemplate,
-    renderer,
-    source,
-    spatialReference,
-    timeInfo: {
-      startField: "launch"
-    }
-  });
+  view.map.addMany([
+    new FeatureLayer({
+      id: "satellite",
+      copyright,
+      fields,  
+      geometryType: "point",
+      labelingInfo,
+      labelsVisible: false,
+      objectIdField,
+      popupTemplate,
+      renderer: satelliteRenderer,
+      source: satelliteGraphics,
+      spatialReference,
+      timeInfo: {
+        startField: "launch"
+      },
+      title: "Satellites",
+      visible: false
+    }),
+    new FeatureLayer({
+      id: "orbit",
+      copyright,
+      fields,
+      geometryType: "polyline",
+      labelsVisible: false,
+      objectIdField,
+      popupTemplate,
+      renderer: orbitRenderer,
+      source: orbitGraphics,
+      spatialReference,
+      title: "Orbits",
+      visible: false
+    })
+  ]);
 
-  map.add(satelliteLayer);
-
-  satelliteLayerView = await view.whenLayerView(satelliteLayer);
+  updateLayers();
 });
 
-function loadSatellites(): Promise<Graphic[]> {
-  const options: any = {
-    responseType: "text"
-  };
-  return Request(TLE, options).then((response) => {
-    const data: string = response.data;
-    const lines = data.split("\n");
-    const count = (lines.length - (lines.length % 2)) / 2;
-    const satellites: Graphic[] = [];
-    for (let i = 0; i < count; i++) {
-      const line1 = lines[i * 2 + 0];
-      const line2 = lines[i * 2 + 1];
-      if (!line1 || !line2) { continue; }
-
-      const satrec = Satellite.twoline2satrec(line1, line2);;
-      if (!satrec) { continue; }
-
-      const satelliteLocation = getSatelliteLocation(satrec, NOW);
-      if (!satelliteLocation) { continue; }
-
-      const oid = i + 1;
-      const norad = Number.parseInt(satrec.satnum, 10);
-      const graphic = new Graphic ({
-        attributes: {
-          oid,
-          norad
-        },
-        geometry: new Point(satelliteLocation)
-      });
-
-      ephemeris[oid] = satrec;
-      satellites.push(graphic);
+const sliderLaunch = new Slider({
+  container: "sliderLaunch",
+  min: 1950,
+  max: 2025,
+  snapOnClickEnabled: true,
+  steps: 1,
+  tickConfigs: [{
+    mode: "position",
+    labelsVisible: true,
+    values: [1950, 1960, 1970, 1980, 1990, 2000, 2010, 2020]
+  }],
+  values: [ 1950, 2025 ],
+  visibleElements: {
+    labels: true,
+    rangeLabels: false
+  },
+  labelFormatFunction: (value, type) => {
+    switch(type) {
+      case "tick":
+        const twoDigitYear = value.toString().substring(2);
+        return `'${twoDigitYear}`;
+      case "value":
+        return `${value}`;
     }
-    return satellites;
+  }
+});
+sliderLaunch.watch("values", () => updateLayers());
+
+document.querySelectorAll("#filter-menu input[name='theme']").forEach((element) => {
+  element.addEventListener("click", () => {
+    updateLayers();
   });
+});
+
+function getOrbit(satrec: satrec, period: number, start: Date): coordinate[] {
+  const SEGMENTS = 100;
+  const milliseconds = period * 60000 / SEGMENTS;
+  
+  const vertices: coordinate[] = [];
+  for (let i = 0; i <= SEGMENTS; i++) {
+    const date = new Date(start.getTime() + i * milliseconds);
+    const satelliteLocation = getSatelliteLocation(satrec, date);
+    if (!satelliteLocation) { continue; }
+    vertices.push(satelliteLocation);
+  }
+
+  return vertices;
 }
 
 function getSatelliteLocation(satrec: satrec, date: Date): coordinate {
@@ -660,31 +967,33 @@ function loadMetadata(): Promise<indexedMetadata> {
   });
 }
 
-function startSpinTimer(): void {
-  stopSpinning();
-  if (timeout != undefined) {
-    clearTimeout(timeout);
-  }
-  timeout = setTimeout(() => {
-    startSpinning();
-  }, 3000);
-}
-
-function startSpinning(): void {
-  if (view.interacting) {
-    startSpinTimer();
-    return;
-  }
-  start = {
-    animationFrame: requestAnimationFrame(spin)
+function loadSatellites(): Promise<satellite[]> {
+  const options: any = {
+    responseType: "text"
   };
-}
+  return Request(TLE, options).then((response) => {
+    const data: string = response.data;
+    const lines = data.split("\n");
+    const count = (lines.length - (lines.length % 2)) / 2;
+    const satellites: satellite[] = [];
 
-function stopSpinning(): void {
-  if (start) {
-    cancelAnimationFrame(start.animationFrame);
-    start = null;
-  }
+    for (let i = 0; i < count; i++) {
+      const line1 = lines[i * 2 + 0];
+      const line2 = lines[i * 2 + 1];
+      if (!line1 || !line2) { continue; }
+
+      const satrec = Satellite.twoline2satrec(line1, line2);;
+      if (!satrec) { continue; }
+
+      const norad = Number.parseInt(satrec.satnum, 10);
+
+      satellites.push({
+        norad,
+        satrec
+      });
+    }
+    return satellites;
+  });
 }
 
 function spin(timestamp: DOMHighResTimeStamp): void {
@@ -697,7 +1006,7 @@ function spin(timestamp: DOMHighResTimeStamp): void {
   }
   if (view.viewingMode === "global") {
     const diff = timestamp - start.timestamp;
-    const rotate = 1 * diff / 1000; // 1 degree per second rotation
+    const rotate = 3 * diff / 1000; // 3 degree per second rotation
 
     const { heading, tilt, position: { longitude, latitude, z } } = start.camera;
     const newLongitude = longitude + rotate;
@@ -720,175 +1029,81 @@ function spin(timestamp: DOMHighResTimeStamp): void {
   requestAnimationFrame(spin)
 }
 
-document.getElementById("reset").addEventListener("click", () => {
-  clearSelection();
-});
-
-document.querySelectorAll("#menu .radio-group .radio-group-input").forEach((element) => {
-  element.addEventListener("click", () => {
-    updateSelection();
-  });
-});
-
-sliderLaunch.watch("values", () => updateSelection());
-sliderPeriod.watch("values", () => updateSelection());
-sliderInclination.watch("values", () => updateSelection());
-sliderApogee.watch("values", () => updateSelection());
-sliderPerigee.watch("values", () => updateSelection());
-
-function clearSelection(): void {
-  highlight?.remove();
-
-  pauseUIEvents();
-
-  (<HTMLInputElement>document.getElementById("country-all")).checked = true;
-  (<HTMLInputElement>document.getElementById("type-all")).checked = true;
-  (<HTMLInputElement>document.getElementById("size-all")).checked = true;
-
-  resetSlider(sliderLaunch);
-  resetSlider(sliderPeriod);
-  resetSlider(sliderInclination);
-  resetSlider(sliderApogee);
-  resetSlider(sliderPerigee);
-
-  resumeUIEvents();
-
-  clearSatelliteCounter();
-}
-
-function clearSatelliteCounter(): void {
-  document.getElementById("counter").innerText = `${satelliteCount} Satellites Loaded`;
-}
-
-function updateSatelliteCounter(count: number): void {
-  document.getElementById("counter").innerText = `${count} of ${satelliteCount} Satellites Found`;
-}
-
-function isSliderMaximized(slider: Slider): boolean {
-  return slider.values[0] === slider.min && slider.values[1] === slider.max
-}
-
-function resetSlider(slider: Slider): void {
-  if (!isSliderMaximized(slider)) {
-    slider.values = [
-      slider.min,
-      slider.max
-    ];
-  }
-}
-
-function pauseUIEvents(): void {
-  pauseEvents = true;
-}
-function resumeUIEvents(): void {
-  pauseEvents = false;
-}
-
-function updateSelection(): void {
-  if (pauseEvents) { return; }
-
-  const country = document.querySelectorAll("#menu .radio-group .radio-group-input[name='country']:checked").item(0).getAttribute("data-country");
-  const type = document.querySelectorAll("#menu .radio-group .radio-group-input[name='type']:checked").item(0).getAttribute("data-type");
-  const size = document.querySelectorAll("#menu .radio-group .radio-group-input[name='size']:checked").item(0).getAttribute("data-size");
-
-  if (country === "ALL" &&
-      type === "ALL" &&
-      size === "ALL" &&
-      isSliderMaximized(sliderLaunch) &&
-      isSliderMaximized(sliderPeriod) &&
-      isSliderMaximized(sliderInclination) &&
-      isSliderMaximized(sliderApogee) &&
-      isSliderMaximized(sliderPerigee)
-    ) {
-    clearSelection();
+function startSpinning(): void {
+  if (view.interacting) {
+    startSpinTimer();
     return;
   }
+  start = {
+    animationFrame: requestAnimationFrame(spin)
+  };
+}
 
-  let where = "";
-  if (country !== "ALL") {
-    where += `country='${country}'`;
+function startSpinTimer(): void {
+  stopSpinning();
+  if (timeout != undefined) {
+    clearTimeout(timeout);
   }
-  if (type !== "ALL") {
-    if (where !== "") { where += " AND "; }
-    where += type === "JUNK" ? `(name LIKE '%DEB%' OR name LIKE '%R/B%')` : `(name NOT LIKE '%DEB%' AND name NOT LIKE '%R/B%')`;
-  }
-  if (size !== "ALL") {
-    if (where !== "") { where += " AND "; }
-    where += `size='${size}'`;
-  }
+  timeout = setTimeout(() => {
+    startSpinning();
+  }, 3000);
+}
 
-  let timeExtent: TimeExtent = null;
-  if (!isSliderMaximized(sliderLaunch)) {
-    timeExtent = new TimeExtent({
-      start: new Date(sliderLaunch.values[0], 0, 1),
-      end: new Date(sliderLaunch.values[1], 0, 1),
-    })
+function stopSpinning(): void {
+  if (start) {
+    cancelAnimationFrame(start.animationFrame);
+    start = null;
   }
+}
 
-  if (!isSliderMaximized(sliderPeriod)) {
-    if (where !== "") { where += " AND "; }
-    const period = new Map<number, number>([
-      [0, 0],
-      [1, 100],
-      [2, 200],
-      [3, 1000],
-      [4, 10000],
-      [5, 60000]
-    ]);
-    const from = period.get(sliderPeriod.values[0]);
-    const to = period.get(sliderPeriod.values[1]);
-    where += `(period BETWEEN ${from} AND ${to})`;
-  }
+function updateLayers(): void {
+  const value = document.querySelectorAll("#filter-menu input[name='theme']:checked").item(0).getAttribute("value");
+  const theme = themes.get(value);
+  const { filter } = theme;
 
-  if (!isSliderMaximized(sliderInclination)) {
-    if (where !== "") { where += " AND "; }
-    const from = sliderInclination.values[0];
-    const to = sliderInclination.values[1];
-    where += `(inclination BETWEEN ${from} AND ${to})`;
-  }
+  sliderLaunch.disabled = value !== "date";
 
-  if (!isSliderMaximized(sliderApogee)) {
-    if (where !== "") { where += " AND "; }
-    const apogee = new Map<number, number>([
-      [0, 0],
-      [1, 1000],
-      [2, 2000],
-      [3, 5000],
-      [4, 100000],
-      [5, 600000]
-    ]);
-    const from = apogee.get(sliderApogee.values[0]);
-    const to = apogee.get(sliderApogee.values[1]);
-    where += `(apogee BETWEEN ${from} AND ${to})`;
-  }
+  ["satellite", "orbit"].forEach((id: "satellite" | "orbit") => {
+    view.whenLayerView(view.map.findLayerById(id)).then((featureLayerView: FeatureLayerView) => {
+      const { visible } = theme[id];
+      featureLayerView.set({
+        filter,
+        visible
+      });
 
-  if (!isSliderMaximized(sliderPerigee)) {
-    if (where !== "") { where += " AND "; }
-    const perigee = new Map<number, number>([
-      [0, 0],
-      [1, 1000],
-      [2, 2000],
-      [3, 5000],
-      [4, 100000],
-      [5, 600000]
-    ]);
-    const from = perigee.get(sliderPerigee.values[0]);
-    const to = perigee.get(sliderPerigee.values[1]);
-    where += `(perigee BETWEEN ${from} AND ${to})`;
-  }
+      if (id === "satellite") {
+        const { labelsVisible, renderer } = theme[id];
+        featureLayerView.layer.set({
+          labelsVisible,
+          renderer
+        });
 
-  const query = new Query({
-    timeExtent,
-    where
+        if (value === "date") {
+          featureLayerView.filter = new FeatureFilter({
+            timeExtent: new TimeExtent({
+              start: new Date(sliderLaunch.values[0], 0, 1),
+              end: new Date(sliderLaunch.values[1], 0, 1),
+            })
+          });
+        }
+
+        updateCounter();
+      }
+    });
   });
+}
 
-  const { layer } = satelliteLayerView;
-  layer.queryFeatures(query).then((featureSet) => {
-    highlight?.remove();
-    highlight = satelliteLayerView.highlight(featureSet.features);
-  });
-
-  layer.queryFeatureCount(query).then((count) => {
-    updateSatelliteCounter(count);
+function updateCounter(): void {
+  view.whenLayerView(view.map.findLayerById("satellite")).then((featureLayerView: FeatureLayerView) => {
+    const query = new Query({
+      timeExtent: featureLayerView.filter?.timeExtent,
+      where: featureLayerView.filter?.where
+    });
+    featureLayerView.layer.queryFeatureCount(query).then((count) => {
+      document.getElementById("counter").innerText =
+        count === satelliteCount ?
+        `${numberFormatter.format(satelliteCount)} Satellites Displayed` :
+        `${numberFormatter.format(count)} of ${numberFormatter.format(satelliteCount)} Satellites Displayed`;
+    });
   });
 }

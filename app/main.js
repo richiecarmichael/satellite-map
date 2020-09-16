@@ -1,9 +1,10 @@
-define(["require", "exports", "tslib", "esri/support/actions/ActionButton", "esri/Camera", "esri/Map", "esri/views/layers/support/FeatureFilter", "esri/layers/FeatureLayer", "esri/layers/support/Field", "esri/Graphic", "esri/Ground", "esri/widgets/Home", "esri/layers/support/LabelClass", "esri/widgets/Popup", "esri/PopupTemplate", "esri/tasks/support/Query", "esri/request", "node_modules/satellite.js/dist/satellite.min.js", "esri/views/SceneView", "esri/widgets/Slider", "esri/TimeExtent", "esri/symbols", "esri/geometry", "esri/renderers"], function (require, exports, tslib_1, ActionButton_1, Camera_1, Map_1, FeatureFilter_1, FeatureLayer_1, Field_1, Graphic_1, Ground_1, Home_1, LabelClass_1, Popup_1, PopupTemplate_1, Query_1, request_1, satellite_min_js_1, SceneView_1, Slider_1, TimeExtent_1, symbols_1, geometry_1, renderers_1) {
+define(["require", "exports", "tslib", "esri/support/actions/ActionButton", "esri/Camera", "esri/Map", "esri/widgets/Expand", "esri/views/layers/support/FeatureFilter", "esri/layers/FeatureLayer", "esri/layers/support/Field", "esri/Graphic", "esri/Ground", "esri/widgets/Home", "esri/layers/support/LabelClass", "esri/widgets/Popup", "esri/PopupTemplate", "esri/tasks/support/Query", "esri/request", "node_modules/satellite.js/dist/satellite.min.js", "esri/views/SceneView", "esri/widgets/Slider", "esri/TimeExtent", "esri/symbols", "esri/geometry", "esri/renderers"], function (require, exports, tslib_1, ActionButton_1, Camera_1, Map_1, Expand_1, FeatureFilter_1, FeatureLayer_1, Field_1, Graphic_1, Ground_1, Home_1, LabelClass_1, Popup_1, PopupTemplate_1, Query_1, request_1, satellite_min_js_1, SceneView_1, Slider_1, TimeExtent_1, symbols_1, geometry_1, renderers_1) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     ActionButton_1 = tslib_1.__importDefault(ActionButton_1);
     Camera_1 = tslib_1.__importDefault(Camera_1);
     Map_1 = tslib_1.__importDefault(Map_1);
+    Expand_1 = tslib_1.__importDefault(Expand_1);
     FeatureFilter_1 = tslib_1.__importDefault(FeatureFilter_1);
     FeatureLayer_1 = tslib_1.__importDefault(FeatureLayer_1);
     Field_1 = tslib_1.__importDefault(Field_1);
@@ -539,9 +540,6 @@ define(["require", "exports", "tslib", "esri/support/actions/ActionButton", "esr
             basemap: "satellite",
             ground: new Ground_1.default()
         }),
-        padding: {
-            right: 300
-        },
         popup: new Popup_1.default({
             collapseEnabled: true,
             dockEnabled: false,
@@ -553,8 +551,8 @@ define(["require", "exports", "tslib", "esri/support/actions/ActionButton", "esr
     });
     view.when(() => {
         startSpinning();
-        document.getElementById("filter-menu").classList.remove("is-hidden");
-        //document.getElementById("tools").classList.remove("is-hidden");
+        document.getElementById("content").classList.remove("esri-button--disabled");
+        document.getElementById("orbit").classList.remove("esri-button--disabled");
     });
     view.on(["pointer-down", "pointer-move", "key-down", "mouse-wheel"], () => {
         startSpinTimer();
@@ -564,19 +562,38 @@ define(["require", "exports", "tslib", "esri/support/actions/ActionButton", "esr
         const { int, norad } = attributes;
         switch (event.action.id) {
             case "nasa":
-                const url1 = `${NASA_SATELLITE_DATABASE}${int}`;
+                window.open(`${NASA_SATELLITE_DATABASE}${int}`);
                 break;
             case "n2yo":
-                const url2 = `${N2YO_SATELLITE_DATABASE}${norad}`;
+                window.open(`${N2YO_SATELLITE_DATABASE}${norad}`);
                 break;
         }
     });
+    const expand = new Expand_1.default({
+        content: document.getElementById("legend"),
+        expandIconClass: "esri-icon-description",
+        expandTooltip: "Information Panel",
+        mode: "floating",
+        view
+    });
+    expand.watch("expanded", (value) => {
+        if (value) {
+            const value = document.querySelectorAll("input[name='theme']:checked").item(0).getAttribute("value");
+            document.querySelectorAll(".satellite-legend-item").forEach((element) => {
+                if (element.getAttribute("data-item") === value) {
+                    element.classList.remove("is-hidden");
+                }
+                else {
+                    element.classList.add("is-hidden");
+                }
+            });
+        }
+    });
     view.ui.add(new Home_1.default({ view }), "top-left");
-    //view.ui.add(new Legend({ view }), "bottom-left");
+    view.ui.add(expand, "bottom-left");
     view.ui.add("tools", "top-left");
     Promise.all([loadSatellites(), loadMetadata()]).then(([source, collection]) => {
         satelliteCount = source.length;
-        //clearSatelliteCounter();
         const satelliteGraphics = source.map((s, oid) => {
             const { norad, satrec } = s;
             const metadata = collection[norad];
@@ -835,7 +852,7 @@ define(["require", "exports", "tslib", "esri/support/actions/ActionButton", "esr
         }
     });
     sliderLaunch.watch("values", () => updateLayers());
-    document.querySelectorAll("#filter-menu input[name='theme']").forEach((element) => {
+    document.querySelectorAll("input[name='theme']").forEach((element) => {
         element.addEventListener("click", () => {
             updateLayers();
         });
@@ -977,7 +994,7 @@ define(["require", "exports", "tslib", "esri/support/actions/ActionButton", "esr
         }
     }
     function updateLayers() {
-        const value = document.querySelectorAll("#filter-menu input[name='theme']:checked").item(0).getAttribute("value");
+        const value = document.querySelectorAll("input[name='theme']:checked").item(0).getAttribute("value");
         const theme = themes.get(value);
         const { filter } = theme;
         sliderLaunch.disabled = value !== "date";
@@ -1015,10 +1032,7 @@ define(["require", "exports", "tslib", "esri/support/actions/ActionButton", "esr
                 where: (_b = featureLayerView.filter) === null || _b === void 0 ? void 0 : _b.where
             });
             featureLayerView.layer.queryFeatureCount(query).then((count) => {
-                document.getElementById("counter").innerText =
-                    count === satelliteCount ?
-                        `${numberFormatter.format(satelliteCount)} Satellites Displayed` :
-                        `${numberFormatter.format(count)} of ${numberFormatter.format(satelliteCount)} Satellites Displayed`;
+                document.getElementById("counter").innerText = `${numberFormatter.format(count)}/${numberFormatter.format(satelliteCount)}`;
             });
         });
     }

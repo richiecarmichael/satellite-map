@@ -1,6 +1,7 @@
 import ActionButton from "esri/support/actions/ActionButton";
 import Camera from "esri/Camera";
 import EsriMap from "esri/Map";
+import Expand from "esri/widgets/Expand";
 import FeatureFilter from "esri/views/layers/support/FeatureFilter";
 import FeatureLayer from "esri/layers/FeatureLayer";
 import FeatureLayerView from "esri/views/layers/FeatureLayerView";
@@ -9,7 +10,6 @@ import Graphic from "esri/Graphic";
 import Ground from "esri/Ground";
 import Home from "esri/widgets/Home";
 import LabelClass from "esri/layers/support/LabelClass";
-import Legend from "esri/widgets/Legend";
 import Popup from "esri/widgets/Popup";
 import PopupTemplate from "esri/PopupTemplate";
 import Query from "esri/tasks/support/Query";
@@ -650,9 +650,6 @@ const view = new SceneView({
     basemap: "satellite",
     ground: new Ground()
   }),
-  padding: {
-    right: 300
-  },
   popup: new Popup({
     collapseEnabled: true,
     dockEnabled: false,
@@ -665,8 +662,8 @@ const view = new SceneView({
 
 view.when(() => {
   startSpinning();
-  document.getElementById("filter-menu").classList.remove("is-hidden");
-  //document.getElementById("tools").classList.remove("is-hidden");
+  document.getElementById("content").classList.remove("esri-button--disabled");
+  document.getElementById("orbit").classList.remove("esri-button--disabled");
 });
 
 view.on(["pointer-down", "pointer-move", "key-down", "mouse-wheel"], () => {
@@ -679,21 +676,40 @@ view.popup.on("trigger-action", (event) => {
 
   switch(event.action.id) {
     case "nasa":
-      const url1 = `${NASA_SATELLITE_DATABASE}${int}`;
+      window.open(`${NASA_SATELLITE_DATABASE}${int}`);
       break;
     case "n2yo":
-      const url2 = `${N2YO_SATELLITE_DATABASE}${norad}`;
+      window.open(`${N2YO_SATELLITE_DATABASE}${norad}`);
       break;
   }
 });
 
+const expand = new Expand({
+  content: document.getElementById("legend"),
+  expandIconClass: "esri-icon-description",
+  expandTooltip: "Information Panel",
+  mode: "floating",
+  view
+});
+expand.watch("expanded", (value) => {
+  if (value) {
+    const value = document.querySelectorAll("input[name='theme']:checked").item(0).getAttribute("value");
+    document.querySelectorAll(".satellite-legend-item").forEach((element) => {
+      if (element.getAttribute("data-item") === value) {
+        element.classList.remove("is-hidden");
+      } else {
+        element.classList.add("is-hidden");
+      }
+    });
+  }
+});
+
 view.ui.add(new Home({ view }), "top-left");
-//view.ui.add(new Legend({ view }), "bottom-left");
+view.ui.add(expand, "bottom-left");
 view.ui.add("tools", "top-left");
 
 Promise.all([loadSatellites(), loadMetadata()]).then(([source, collection]) => {
   satelliteCount = source.length;
-  //clearSatelliteCounter();
 
   const satelliteGraphics = source.map((s, oid) => {
     const { norad, satrec } = s;
@@ -971,7 +987,7 @@ const sliderLaunch = new Slider({
 });
 sliderLaunch.watch("values", () => updateLayers());
 
-document.querySelectorAll("#filter-menu input[name='theme']").forEach((element) => {
+document.querySelectorAll("input[name='theme']").forEach((element) => {
   element.addEventListener("click", () => {
     updateLayers();
   });
@@ -1128,7 +1144,7 @@ function stopSpinning(): void {
 }
 
 function updateLayers(): void {
-  const value = document.querySelectorAll("#filter-menu input[name='theme']:checked").item(0).getAttribute("value");
+  const value = document.querySelectorAll("input[name='theme']:checked").item(0).getAttribute("value");
   const theme = themes.get(value);
   const { filter } = theme;
 
@@ -1171,10 +1187,7 @@ function updateCounter(): void {
       where: featureLayerView.filter?.where
     });
     featureLayerView.layer.queryFeatureCount(query).then((count) => {
-      document.getElementById("counter").innerText =
-        count === satelliteCount ?
-        `${numberFormatter.format(satelliteCount)} Satellites Displayed` :
-        `${numberFormatter.format(count)} of ${numberFormatter.format(satelliteCount)} Satellites Displayed`;
+      document.getElementById("counter").innerText = `${numberFormatter.format(count)}/${numberFormatter.format(satelliteCount)}`;
     });
   });
 }

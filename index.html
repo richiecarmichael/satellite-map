@@ -35,6 +35,10 @@
           {
             name: "app",
             location: location.pathname.replace(/\/[^\/]+$/, "") + "/app"
+          },
+          {
+            name: "calcite",
+            location: location.pathname.replace(/\/[^\/]+$/, "") + "/node_modules/calcite-web/dist/js"
           }
         ]
       };
@@ -48,58 +52,196 @@
   </head>
   <body>
     <div id="viewDiv"></div>
-    <div id="counter"></div>
-    <div id="filter-menu" class="esri-widget is-hidden">
-      <h1>Satellite Filter</h1>
-      <fieldset class="fieldset-radio">
-        <legend>Orbit</legend>
-        <label><input type="radio" name="theme" value="low">Low</label>
-        <label><input type="radio" name="theme" value="medium">Medium</label>
-        <label><input type="radio" name="theme" value="high" checked>High</label>
-        <label><input type="radio" name="theme" value="geosynchronous">Geosynchronous</label>
-        <label><input type="radio" name="theme" value="geostationary">Geostationary</label>
-      </fieldset>
-      <fieldset class="fieldset-radio">
-        <legend>Constellation</legend>
-        <label><input type="radio" name="theme" value="digitalglobe">DigitalGlobe</label>
-        <label><input type="radio" name="theme" value="inmarsat">Inmarsat</label>
-        <label><input type="radio" name="theme" value="glonass">GLONASS</label>
-        <label><input type="radio" name="theme" value="gps">GPS</label>
-        <label><input type="radio" name="theme" value="landsat">Landsat</label>
-        <label><input type="radio" name="theme" value="starlink">Starlink</label>
-      </fieldset>
-      <fieldset class="fieldset-radio">
-        <legend>Themes</legend>
-        <label><input type="radio" name="theme" value="country">Country</label>
-        <label><input type="radio" name="theme" value="junk">Junk</label>
-      </fieldset>
-      <fieldset class="fieldset-radio">
-        <legend>Launch Date</legend>
-        <label><input type="radio" name="theme" value="date">Specify Date</label>
-      </fieldset>
-      <div id="sliderLaunch"></div>
-      <fieldset class="fieldset-radio">
-        <legend>Notable Satellites</legend>
-        <label><input type="radio" name="theme" value="debris">Fēngyún 1C Debris</label>
-        <label><input type="radio" name="theme" value="iss">ISS</label>
-        <label><input type="radio" name="theme" value="vanguard-1">Vanguard 1</label>
-      </fieldset>
-    </div>
-    <div id="tools" class="esri-widget is-hidden">
-      <div id="filter" class="esri-widget--button esri-widget satellite-selected" role="button" tabindex="0" aria-label="Filter" title="Filter">
-        <span aria-hidden="true" class="esri-icon esri-icon-filter" />
-        <span class="esri-icon-font-fallback-text">Filter</span>
-      </div>
-      <div id="orbit" class="esri-widget--button esri-widget" role="button" tabindex="0" aria-label="Orbit" title="Orbit">
+    <div id="tools" class="esri-widget">
+      <button id="content" class="esri-widget--button esri-widget js-drawer-toggle satellite-widget-button esri-button--disabled" data-drawer="right" role="button" tabindex="0" aria-label="Click here to change content" title="Click here to change content">
+        <span aria-hidden="true" class="esri-icon esri-icon-applications satellite-no-pointer-events" />
+        <span class="esri-icon-font-fallback-text">Content</span>
+      </button>
+      <div id="orbit" class="esri-widget--button esri-widget is-hidden esri-button--disabled" role="button" tabindex="0" aria-label="Orbit" title="Orbit">
         <span aria-hidden="true" class="esri-icon esri-icon-loading-indicator" />
         <span class="esri-icon-font-fallback-text">Orbit</span>
       </div>
-      <div id="report" class="esri-widget--button esri-widget" role="button" tabindex="0" aria-label="Report" title="Report">
-        <span aria-hidden="true" class="esri-icon esri-icon-applications" />
-        <span class="esri-icon-font-fallback-text">Report</span>
-      </div>
     </div>
-    <script>require(["app/main"]);</script>
+    <div class="drawer drawer-right js-drawer" data-drawer="right">
+      <nav class="drawer-nav" role="navigation">
+        <aside class="side-nav">
+          <div class="side-nav-title">Satellite Layers</div>
+          <fieldset class="fieldset-radio">
+            <legend>Orbit</legend>
+            <label><input type="radio" name="theme" value="low">Low</label>
+            <label><input type="radio" name="theme" value="medium">Medium</label>
+            <label><input type="radio" name="theme" value="high" checked>High</label>
+            <label><input type="radio" name="theme" value="geosynchronous">Geosynchronous</label>
+            <label><input type="radio" name="theme" value="geostationary">Geostationary</label>
+          </fieldset>
+          <fieldset class="fieldset-radio">
+            <legend>Constellation</legend>
+            <label><input type="radio" name="theme" value="digitalglobe">DigitalGlobe</label>
+            <label><input type="radio" name="theme" value="inmarsat">Inmarsat</label>
+            <label><input type="radio" name="theme" value="glonass">GLONASS</label>
+            <label><input type="radio" name="theme" value="gps">GPS</label>
+            <label><input type="radio" name="theme" value="landsat">Landsat</label>
+            <label><input type="radio" name="theme" value="starlink">Starlink</label>
+          </fieldset>
+          <fieldset class="fieldset-radio">
+            <legend>Themes</legend>
+            <label><input type="radio" name="theme" value="country">Country</label>
+            <label><input type="radio" name="theme" value="junk">Junk</label>
+          </fieldset>
+          <fieldset class="fieldset-radio">
+            <legend>Launch Date</legend>
+            <label><input type="radio" name="theme" value="date">Specify Date</label>
+          </fieldset>
+          <div id="sliderLaunch"></div>
+          <fieldset class="fieldset-radio">
+            <legend>Notable Satellites</legend>
+            <label><input type="radio" name="theme" value="debris">Fēngyún 1C Debris</label>
+            <label><input type="radio" name="theme" value="iss">ISS</label>
+            <label><input type="radio" name="theme" value="vanguard-1">Vanguard 1</label>
+          </fieldset>
+        </aside>
+      </nav>
+    </div>
+    <div id="legend" class="esri-component esri-widget esri-widget--panel satellite-legend">
+      <aside class="side-nav">
+        <div data-item="low" class="satellite-legend-item is-hidden">
+          <div class="side-nav-title">Low Earth orbit</div>
+          <div class="satellite-legend-content">
+            <p>A low Earth orbit (LEO) is an Earth-centred orbit with an altitude of 2,000 km (1,200 mi) or less (approximately one-third of the radius of Earth), or with at least 11.25 periods per day (an orbital period of 128 minutes or less) and an eccentricity less than 0.25. Most of the manmade objects in outer space are in LEO.</p>
+            <p>There is a large variety of other sources that define LEO in terms of altitude. The altitude of an object in an elliptic orbit can vary significantly along the orbit. Even for circular orbits, the altitude above ground can vary by as much as 30 km (19 mi) (especially for polar orbits) due to the oblateness of Earth's spheroid figure and local topography. While definitions based on altitude are inherently ambiguous, most of them fall within the range specified by an orbit period of 128 minutes because, according to Kepler's third law, this corresponds to a semi-major axis of 8,413 km (5,228 mi). For circular orbits, this in turn corresponds to an altitude of 2,042 km (1,269 mi) above the mean radius of Earth, which is consistent with some of the upper altitude limits in some LEO definitions.</p>
+            <p><i>from <a href="https://en.wikipedia.org/wiki/Low_Earth_orbit">Wikipedia</a></i></p>
+            <div id="counter"></div>
+          </div>
+        </div>
+        <div data-item="medium" class="satellite-legend-item is-hidden">
+          <div class="side-nav-title">Medium Earth orbit</div>
+          <div class="satellite-legend-content">
+            <p>Medium Earth orbit (MEO), sometimes called intermediate circular orbit (ICO), is the region of space around Earth above low Earth orbit (altitude of 2,000 km (1,243 mi) above sea level) and below geosynchronous orbit (altitude of 35,786 km (22,236 mi) above sea level).</p>
+            <p>The orbit is home to a number of artificial satellites – the most common uses include navigation, communication, and geodetic/space environment science. The most common altitude is approximately 20,200 kilometres (12,552 mi), which yields an orbital period of 12 hours, as used, for example, by the Global Positioning System (GPS). Other satellites in medium Earth orbit include Glonass (with an altitude of 19,100 kilometres (11,900 mi)) and Galileo (with an altitude of 23,222 kilometres (14,429 mi)) constellations. Communications satellites in MEO include the O3b and forthcoming O3b mPower constellations for telecommunications and data backhaul to maritime, aero and remote locations (with an altitude of 8,063 kilometres (5,010 mi)). Communications satellites that cover the North and South Pole are also put in MEO.</p>
+            <p><i>from <a href="https://en.wikipedia.org/wiki/Medium_Earth_orbit">Wikipedia</a></i></p>
+          </div>
+        </div>
+        <div data-item="high" class="satellite-legend-item is-hidden">
+          <div class="side-nav-title">High Earth orbit</div>
+          <div class="satellite-legend-content">
+            <p>A high Earth orbit is a geocentric orbit with an altitude entirely above that of a geosynchronous orbit (35,786 kilometres (22,236 mi)). The orbital periods of such orbits are greater than 24 hours, therefore satellites in such orbits have an apparent retrograde motion – that is, even if they are in a prograde orbit (90° > inclination ≥ 0°), their orbital velocity is lower than Earth's rotational speed, causing their ground track to move westward on Earth's surface.</p>
+            <p><i>from <a href="https://en.wikipedia.org/wiki/High_Earth_orbit">Wikipedia</a></i></p>
+          </div>
+        </div>
+        <div data-item="geosynchronous" class="satellite-legend-item is-hidden">
+          <div class="side-nav-title">Geosynchronous orbit</div>
+          <div class="satellite-legend-content">
+            <p>A geosynchronous orbit (sometimes abbreviated GSO) is an Earth-centered orbit with an orbital period that matches Earth's rotation on its axis, 23 hours, 56 minutes, and 4 seconds (one sidereal day). The synchronization of rotation and orbital period means that, for an observer on Earth's surface, an object in geosynchronous orbit returns to exactly the same position in the sky after a period of one sidereal day. Over the course of a day, the object's position in the sky may remain still or trace out a path, typically in a figure-8 form, whose precise characteristics depend on the orbit's inclination and eccentricity. A circular geosynchronous orbit has a constant altitude of 35,786 km (22,236 mi), and all geosynchronous orbits share that semi-major axis.</p>
+            <p><i>from <a href="https://en.wikipedia.org/wiki/Geosynchronous_orbit">Wikipedia</a></i></p>
+          </div>
+        </div>
+        <div data-item="geostationary" class="satellite-legend-item is-hidden">
+          <div class="side-nav-title">Geostationary orbit</div>
+          <div class="satellite-legend-content">
+            <p>A geostationary orbit, also referred to as a geosynchronous equatorial orbit (GEO), is a circular geosynchronous orbit 35,786 kilometres (22,236 miles) above Earth's equator and following the direction of Earth's rotation.</p>
+            <p>An object in such an orbit has an orbital period equal to the Earth's rotational period, one sidereal day, and so to ground observers it appears motionless, in a fixed position in the sky. The concept of a geostationary orbit was popularised by the science fiction writer Arthur C. Clarke in the 1940s as a way to revolutionise telecommunications, and the first satellite to be placed in this kind of orbit was launched in 1963.</p>
+            <p><i>from <a href="https://en.wikipedia.org/wiki/Geostationary_orbit">Wikipedia</a></i></p>
+          </div>
+        </div>
+        <div data-item="digitalglobe" class="satellite-legend-item is-hidden">
+          <div class="side-nav-title">DigitalGlobe</div>
+          <div class="satellite-legend-content">
+            <p>DigitalGlobe is an American commercial vendor of space imagery and geospatial content, and operator of civilian remote sensing spacecraft. The company went public on the New York Stock Exchange on 14 May 2009, selling 14.7 million shares at $19.00 each to raise $279 million in capital. On 5 October 2017, Maxar Technologies completed its acquisition of DigitalGlobe.</p>
+            <p>The company's "WorldView" satellites should not be confused with the unrelated WorldView company (a stratospheric balloon operator).</p>
+            <p><i>from <a href="https://en.wikipedia.org/wiki/DigitalGlobe">Wikipedia</a></i></p>
+          </div>
+        </div>
+        <div data-item="inmarsat" class="satellite-legend-item is-hidden">
+          <div class="side-nav-title">Inmarsat</div>
+          <div class="satellite-legend-content">
+            <p>Inmarsat (LSE: ISAT) is a British satellite telecommunications company, offering global mobile services. It provides telephone and data services to users worldwide, via portable or mobile terminals which communicate with ground stations through thirteen geostationary telecommunications satellites. Inmarsat's network provides communications services to a range of governments, aid agencies, media outlets and businesses (especially in the shipping, airline and mining industries) with a need to communicate in remote regions or where there is no reliable terrestrial network. The company was listed on the London Stock Exchange until it was acquired by Connect Bidco, a consortium consisting of Apax Partners, Warburg Pincus, the CPP Investment Board and the Ontario Teachers' Pension Plan, in December 2019.</p>
+            <p><i>from <a href="https://en.wikipedia.org/wiki/Inmarsat">Wikipedia</a></i></p>
+          </div>
+        </div>
+        <div data-item="glonass" class="satellite-legend-item is-hidden">
+          <div class="side-nav-title">GLONASS</div>
+          <div class="satellite-legend-content">
+            <p>GLONASS (Russian: ГЛОНАСС, IPA: [ɡɫɐˈnas]; Глобальная навигационная спутниковая система, transliteration: Globalnaya navigatsionnaya sputnikovaya sistema), or "GLObal NAvigation Satellite System", is a space-based satellite navigation system operating as part of a radionavigation-satellite service. It provides an alternative to GPS and is the second navigational system in operation with global coverage and of comparable precision.</p>
+            <p>Manufacturers of GPS navigation devices say that adding GLONASS made more satellites available to them, meaning positions can be fixed more quickly and accurately, especially in built-up areas where buildings may obscure the view to some GPS satellites. GLONASS supplementation of GPS systems also improves positioning in high latitudes (north or south).</p>
+            <p>Development of GLONASS began in the Soviet Union in 1976. Beginning on 12 October 1982, numerous rocket launches added satellites to the system, until the completion of the constellation in 1995. After a decline in capacity during the late 1990s, in 2001, the restoration of the system was made a government priority and funding increased substantially. GLONASS is the most expensive program of the Russian Federal Space Agency, consuming a third of its budget in 2010.</p>
+            <p>By 2010 GLONASS had achieved full coverage of Russia's territory and in October 2011 the full orbital constellation of 24 satellites was restored, enabling full global coverage. The GLONASS satellites' designs have undergone several upgrades, with the latest version, GLONASS-K2, scheduled to enter service in 2019. An announcement predicts the deployment of a group of communications and navigational satellites by 2040. The task also includes the delivery to the Moon of a series of spacecraft for orbital research and the establishment of a lunar communications and positioning system.</p>
+            <p><i>from <a href="https://en.wikipedia.org/wiki/GLONASS">Wikipedia</a></i></p>
+          </div>
+        </div>
+        <div data-item="gps" class="satellite-legend-item is-hidden">
+          <div class="side-nav-title">Global Positioning System</div>
+          <div class="satellite-legend-content">
+            <p>The Global Positioning System (GPS), originally NAVSTAR GPS, is a satellite-based radionavigation system owned by the United States government and operated by the United States Space Force. It is one of the global navigation satellite systems (GNSS) that provides geolocation and time information to a GPS receiver anywhere on or near the Earth where there is an unobstructed line of sight to four or more GPS satellites.[3] Obstacles such as mountains and buildings block the relatively weak GPS signals.</p>
+            <p>The GPS does not require the user to transmit any data, and it operates independently of any telephonic or internet reception, though these technologies can enhance the usefulness of the GPS positioning information. The GPS provides critical positioning capabilities to military, civil, and commercial users around the world. The United States government created the system, maintains it, and makes it freely accessible to anyone with a GPS receiver.</p>
+            <p>The GPS project was started by the U.S. Department of Defense in 1973, with the first prototype spacecraft launched in 1978 and the full constellation of 24 satellites operational in 1993. Originally limited to use by the United States military, civilian use was allowed from the 1980s following an executive order from President Ronald Reagan. Advances in technology and new demands on the existing system have now led to efforts to modernize the GPS and implement the next generation of GPS Block IIIA satellites and Next Generation Operational Control System (OCX). Announcements from Vice President Al Gore and the White House in 1998 initiated these changes. In 2000, the U.S. Congress authorized the modernization effort, GPS III.</p>
+            <p>During the 1990s, GPS quality was degraded by the United States government in a program called "Selective Availability"; this was discontinued on May 1, 2000 by a law signed by President Bill Clinton.</p>
+            <p><i>from <a href="https://en.wikipedia.org/wiki/Global_Positioning_System">Wikipedia</a></i></p>
+          </div>
+        </div>
+        <div data-item="landsat" class="satellite-legend-item is-hidden">
+          <div class="side-nav-title">Landsat program</div>
+          <div class="satellite-legend-content">
+            <p>The Landsat program is the longest-running enterprise for acquisition of satellite imagery of Earth. It is a joint NASA/USGS program. On July 23, 1972 the Earth Resources Technology Satellite was launched. This was eventually renamed to Landsat. The most recent, Landsat 8, was launched on February 11, 2013. The instruments on the Landsat satellites have acquired millions of images. The images, archived in the United States and at Landsat receiving stations around the world, are a unique resource for global change research and applications in agriculture, cartography, geology, forestry, regional planning, surveillance and education, and can be viewed through the U.S. Geological Survey (USGS) 'EarthExplorer' website. Landsat 7 data has eight spectral bands with spatial resolutions ranging from 15 to 60 meters (49 to 197 ft); the temporal resolution is 16 days. Landsat images are usually divided into scenes for easy downloading. Each Landsat scene is about 115 miles long and 115 miles wide (or 100 nautical miles long and 100 nautical miles wide, or 185 kilometers long and 185 kilometers wide).</p>
+            <p><i>from <a href="https://en.wikipedia.org/wiki/Landsat_program">Wikipedia</a></i></p>
+          </div>
+        </div>
+        <div data-item="starlink" class="satellite-legend-item is-hidden">
+          <div class="side-nav-title">Starlink</div>
+          <div class="satellite-legend-content">
+            <p>Starlink is a satellite internet constellation being constructed by SpaceX providing satellite Internet access. The constellation will consist of thousands of mass-produced small satellites in low Earth orbit (LEO), working in combination with ground transceivers. SpaceX also plans to sell some of the satellites for military, scientific, or exploratory purposes. The SpaceX satellite development facility in Redmond, Washington houses the Starlink research, development, manufacturing, and on-orbit control operations. The total cost of the decade-long project to design, build, and deploy the constellation was estimated by SpaceX in May 2018 to be about US$10 billion.</p>
+            <p>Product development began in 2015, with the first two prototype test-flight satellites launched in February 2018. A second set of test satellites and the first large deployment of a piece of the constellation occurred in May 2019 when the first 60 operational satellites were launched. As of September 2020, SpaceX is launching up to 60 satellites at a time, aiming to deploy 1,440 of the 260 kilograms (570 lb) spacecraft to provide near-global service by late 2021 or 2022. SpaceX was initially targeting a private beta service in the Northern United States and Canada by August 2020 with a public beta following in November 2020, service beginning at high latitudes between 44°-52° North.</p>
+            <p><i>from <a href="https://en.wikipedia.org/wiki/Starlink">Wikipedia</a></i></p>
+          </div>
+        </div>
+        <div data-item="country" class="satellite-legend-item is-hidden">
+          <div class="side-nav-title">Colored by national origin</div>
+          <div class="satellite-legend-content">
+            <p>This view color codes the three predominant satellite nationals, namely China (in yellow), Russian (in red) and United States (in cyan).</p>
+          </div>
+        </div>
+        <div data-item="junk" class="satellite-legend-item is-hidden">
+          <div class="side-nav-title">Satellite Junk</div>
+          <div class="satellite-legend-content">
+            <p>About two thirds of known space orbiting objects are junk. These orbits are either debris (in cyan) created from space collisions or spent/discarded rocket booster (in red).</p>
+          </div>
+        </div>
+        <div data-item="date" class="satellite-legend-item is-hidden">
+          <div class="side-nav-title">Satellites filtered by date</div>
+          <div class="satellite-legend-content">
+            <p></p>
+          </div>
+        </div>
+        <div data-item="debris" class="satellite-legend-item is-hidden">
+          <div class="side-nav-title">Fēngyún 1C Debris</div>
+          <div class="satellite-legend-content">
+            <p>On 11 January 2007, China conducted an anti-satellite missile test. A Chinese weather satellite—the FY-1C polar orbit satellite of the Fengyun series, at an altitude of 865 kilometres (537 mi), with a mass of 750 kg was destroyed by a kinetic kill vehicle traveling with a speed of 8 km/s in the opposite direction (see Head-on engagement). It was launched with a multistage solid-fuel missile from Xichang Satellite Launch Center or nearby.</p>
+            <p>Aviation Week & Space Technology magazine first reported the test on 17 January 2007. The report was confirmed on 18 January 2007 by a United States National Security Council (NSC) spokesperson. At first the Chinese government did not publicly confirm whether or not the test had occurred; but on 23 January 2007, the Chinese Foreign Ministry officially confirmed that a test had been conducted. China claims it formally notified the U.S., Japan and other countries about the test in advance.</p>
+            <p>It was the first known successful satellite intercept test since 1985, when the United States conducted a similar anti-satellite missile test using an ASM-135 ASAT to destroy the P78-1 satellite.</p>
+            <p><i>from <a href="https://en.wikipedia.org/wiki/2007_Chinese_anti-satellite_missile_test">Wikipedia</a></i></p>
+          </div>
+        </div>
+        <div data-item="iss" class="satellite-legend-item is-hidden">
+          <div class="side-nav-title">International Space Station</div>
+          <div class="satellite-legend-content">
+            <p>The International Space Station (ISS) is a modular space station (habitable artificial satellite) in low Earth orbit. It is a multinational collaborative project between five participating space agencies: NASA (United States), Roscosmos (Russia), JAXA (Japan), ESA (Europe), and CSA (Canada). The ownership and use of the space station is established by intergovernmental treaties and agreements. The station serves as a microgravity and space environment research laboratory in which scientific research is conducted in astrobiology, astronomy, meteorology, physics, and other fields. The ISS is suited for testing the spacecraft systems and equipment required for possible future long-duration missions to the Moon and Mars.</p>
+            <p>The ISS programme evolved from the Space Station Freedom, an American proposal in the 1980s to construct a permanently crewed Earth-orbiting station. The ISS is the ninth space station to be inhabited by crews, following the Soviet and later Russian Salyut, Almaz, and Mir stations and the U.S. Skylab. It is the largest artificial object in space and the largest satellite in low Earth orbit, regularly visible to the naked eye from Earth's surface. It maintains an orbit with an average altitude of 400 kilometres (250 mi) by means of reboost manoeuvres using the engines of the Zvezda Service Module or visiting spacecraft. The ISS circles the Earth in roughly 93 minutes, completing 15.5 orbits per day.</p>
+            <p><i>from <a href="https://en.wikipedia.org/wiki/International_Space_Station">Wikipedia</a></i></p>
+          </div>
+        </div>
+        <div data-item="vanguard-1" class="satellite-legend-item is-hidden">
+          <div class="side-nav-title">Vanguard 1</div>
+          <div class="satellite-legend-content">
+            <p>Vanguard 1 (ID: 1958-Beta 2) (March 17, 1958) is an American satellite that was the fourth artificial Earth orbital satellite to be successfully launched (following Sputnik 1, Sputnik 2, and Explorer 1). Vanguard 1 was the first satellite to have solar electric power. Although communication with the satellite was lost in 1964, it remains the oldest human-made object still in orbit, together with the upper stage of its launch vehicle.</p>
+            <p>Vanguard 1 was designed to test the launch capabilities of a three-stage launch vehicle as a part of Project Vanguard, and the effects of the space environment on a satellite and its systems in Earth orbit. It also was used to obtain geodetic measurements through orbit analysis. Vanguard 1 was described by the Soviet Premier, Nikita Khrushchev, as "the grapefruit satellite".</p>
+            <p><i>from <a href="https://en.wikipedia.org/wiki/Vanguard_1">Wikipedia</a></i></p>
+          </div>
+        </div>
+      </aside>
+    </div>
+    <script>
+      require(["app/main", "calcite/calcite-web.min"], function(main, calcite) {
+        calcite.init();
+      });
     </script>
   </body>
 </html>
